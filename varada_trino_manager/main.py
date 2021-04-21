@@ -1,17 +1,22 @@
 from json import dumps
 from typing import Tuple
 from .constants import Paths
-from click import group, argument
-from .utils import read_file_as_json
-from .remote import parallel_download, parallel_ssh_execute, ssh_session
+from logbook import DEBUG, INFO
+from .configuration import get_config
+from .rest_commands import RestCommands
+from click import group, argument, option, echo
+from .utils import read_file_as_json, logger
+from .remote import parallel_download, parallel_ssh_execute, rest_execute, ssh_session
+from .connections import PrestoRest
 
 
+@option("-v", "--verbose", is_flag=True, default=False)
 @group()
-def main():
+def main(verbose):
     """
     Varada trino manager
     """
-    pass
+    logger.level = DEBUG if verbose else INFO
 
 
 @main.group()
@@ -38,7 +43,7 @@ def command(command: Tuple[str]):
     Send command via SSH to all nodes
     """
     for task, hostname in parallel_ssh_execute(" ".join(command)):
-        print(f"{hostname}: {task.result()}")
+        echo(f"{hostname}: {task.result()}")
 
 
 @main.group()
@@ -55,7 +60,7 @@ def show_deployment():
     Shows the current configuration
     """
     data = read_file_as_json(Paths.config_path)
-    print(dumps(data, indent=2))
+    echo(dumps(data, indent=2))
 
 
 @etc.command()
@@ -67,7 +72,7 @@ def is_panic():
     tasks = parallel_ssh_execute(command=command)
     for panic, hostname in tasks:
         if bool(int(panic.result().strip())):
-            print(f"found panic in {hostname}")
+            echo(f"found panic in {hostname}")
 
 
 @main.group()
@@ -100,6 +105,15 @@ def restart():
     Restart presto service
     """
     parallel_ssh_execute(command="sudo systemctl restart presto")
+
+
+@server.command()
+def status():
+    """
+    Checks if the cluster is successfully running
+    """
+    con = get_config().get_connection_by_name("coordinator")
+    echo(rest_execute(con=con, rest_client_type=PrestoRest, func=RestCommands.status))
 
 
 @main.group()
@@ -141,6 +155,45 @@ def collect():
     parallel_download(
         remote_file_path="/tmp/custom_logs.tar.gz", local_dir_path=Paths.logs_path
     )
+
+
+@main.group()
+def rules():
+    """
+    Rules utility commands
+    """
+
+
+@rules.command()
+def generate():
+    """
+    Generate rule
+    """
+    pass
+
+
+@rules.command()
+def apply():
+    """
+    Apply rule to the cluster
+    """
+    pass
+
+
+@rules.command()
+def get():
+    """
+    Get rule from the cluster
+    """
+    pass
+
+
+@rules.command()
+def delete():
+    """
+    Delete rule from the cluster
+    """
+    pass
 
 
 if __name__ == "__main__":

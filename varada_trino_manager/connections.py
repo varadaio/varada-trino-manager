@@ -1,13 +1,24 @@
 from os import makedirs
+from .utils import logger
+from dataclasses import dataclass
 from os.path import exists, dirname
 from paramiko.channel import Channel
-from logging import Logger, getLogger
 from paramiko.transport import Transport
 from paramiko.sftp_client import SFTPClient
 from paramiko import AutoAddPolicy, SSHClient
+from requests import Session, Response, codes, exceptions
 
 
-class SSH:
+class Client:
+    def __enter__(self):
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+
+class SSH(Client):
     LOCALHOST: str = "127.0.0.1"
 
     def __init__(
@@ -15,8 +26,7 @@ class SSH:
         host: str,
         port: int,
         user: str,
-        sock: Channel = None,
-        logger: Logger = None,
+        sock: Channel = None
     ):
         self.__host = host
         self.__port = port
@@ -24,7 +34,6 @@ class SSH:
         self.__sock = sock
         self.__client = SSHClient()
         self.__transport = None
-        self.__logger = getLogger(__name__) if logger is None else logger
 
     def connect(self):
         self.__client.set_missing_host_key_policy(AutoAddPolicy)
@@ -35,6 +44,9 @@ class SSH:
             sock=self.__sock,
             allow_agent=True,
         )
+
+    def close(self):
+        self.__client.close()
 
     def get_transport(self) -> Transport:
         return self.__client.get_transport()
@@ -48,15 +60,9 @@ class SSH:
         )
 
     def execute(self, command: str) -> str:
+        logger.debug(f'executing: {command}')
         _, stdout, _ = self.__client.exec_command(command=command)
         return stdout.read().decode()
-
-    def __enter__(self):
-        self.connect()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.__client.close()
 
 
 class SFTP(SSH):
@@ -65,8 +71,7 @@ class SFTP(SSH):
         host: str,
         port: int,
         user: str,
-        sock: Channel = None,
-        logger: Logger = None,
+        sock: Channel = None
     ):
         super(SFTP, self).__init__(
             host=host, port=port, user=user, sock=sock, logger=logger
@@ -83,3 +88,63 @@ class SFTP(SSH):
 
     def put(self, local_file_path: str, remote_file_path: str):
         self.__client.put(localpath=local_file_path, remotepath=remote_file_path)
+
+
+@dataclass
+class Schemas:
+    HTTP: str = "http"
+    HTTPS: str = "https"
+
+def handle_response(func):
+    def handle_response_wrapper(self, *args, **kw) -> Response:
+        response = func(self, *args, **kw)
+        if response.status_code == codes.ok:
+            return response
+        raise exceptions.HTTPError(response=response)
+    return handle_response_wrapper
+
+
+class Rest(Client):
+    def __init__(self, host, port: int = None, http_schema: str = Schemas.HTTP):
+        self.__host = host
+        self.__port = port if port is not None else self.PORT
+        self.__http_schema = http_schema
+
+    def connect(self):
+        self.__client = Session()
+
+    def close(self) -> None:
+        if self.__client is not None:
+            del self.__client
+
+    @property
+    def url(self) -> str:
+        return f"{self.__http_schema}://{self.__host}:{self.__port}"
+
+    @handle_response
+    def get(self, sub_url: str) -> Response:
+        url = f"{self.url}/{sub_url}"
+        logger.debug(f'GET {url}')
+        return self.__client.get(url=url)
+
+    @handle_response
+    def post(self, sub_url: str, json_data: dict = None) -> Response:
+        url = f"{self.url}/{sub_url}"
+        logger.debug(f'POST {url} {json_data}')
+        return self.__client.post(url=url, json=json_data)
+
+
+class PrestoRest(Rest):
+    PORT = 8080
+
+    @property
+    def url(self) -> str:
+        return f"{super(PrestoRest, self).url}/v1"
+
+
+class VaradaRest(Rest):
+    PORT = 8088
+
+    @property
+    def url(self) -> str:
+        return f"{super(VaradaRest, self).url}/v1/ext/varada"

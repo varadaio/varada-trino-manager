@@ -25,6 +25,10 @@ setup(
     install_requires=[
         "click==7.1.2",
         "paramiko==2.7.2",
+        "requests==2.25.1",
+        "jsons==1.4.2",
+        "sshtunnel==0.4.0",
+        "Logbook==1.5.3",
     ],
     extras_require={
         "dev": [

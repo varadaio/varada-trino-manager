@@ -21,13 +21,13 @@ class Connection:
 
     def __repr__(self) -> str:
         bastion_connection_string = (
-            f"{self.bastion_username}@{self.bastion_hostname}:{self.bastion_port}->"
+            f"{self.bastion_username}@{self.bastion_hostname}:{self.bastion_port} -->"
             if bool(
                 self.bastion_hostname and self.bastion_port and self.bastion_username
             )
             else ""
         )
-        return f"<{self.role}>{bastion_connection_string}{self.username}@{self.hostname}:{self.port}"
+        return f"<{self.role}> {bastion_connection_string} {self.username}@{self.hostname}:{self.port}"
 
 
 @dataclass

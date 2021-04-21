@@ -1,14 +1,33 @@
+from .utils import logger
 from os import execv, makedirs
 from os.path import basename, dirname, join as path_join
 from typing import List, Tuple
 from .constants import Common
-from .connections import SSH, SFTP
 from subprocess import check_output
+from .connections import SSH, SFTP, Rest
+from sshtunnel import SSHTunnelForwarder
 from .configuration import get_config, Connection
 from concurrent.futures import ThreadPoolExecutor, Future
 
 
+def rest_execute(con: Connection, rest_client_type: Rest, func, *args, **kw):
+    logger.debug(f"Establishing connection {con}")
+    if con.with_bastion:
+        with SSHTunnelForwarder(
+            ssh_address_or_host=(con.bastion_hostname, con.bastion_port),
+            ssh_username=con.bastion_username,
+            remote_bind_address=(con.hostname, rest_client_type.PORT),
+            allow_agent=True,
+        ) as tunnel:
+            host, port = tunnel.local_bind_address
+            with rest_client_type(host=host, port=port) as client:
+                return func(client, *args, **kw)
+    with rest_client_type(host=con.hostname) as client:
+        return func(client, *args, **kw)
+
+
 def ssh_execute(command: str, con: Connection) -> str:
+    logger.debug(f"Establishing connection {con}")
     if con.with_bastion:
         with SSH(
             host=con.bastion_hostname,
@@ -33,11 +52,12 @@ def ssh_session(node: str) -> None:
         args = f"{ssh_executable} {con.bastion_username}@{con.bastion_hostname} -p {con.bastion_port} {Common.SSH_ARGS_AGENT_FORWARDING} 'ssh {con.username}@{con.hostname} -p {con.port}'"
     else:
         args = f"{ssh_executable} {con.username}@{con.hostname} -p {con.port} {Common.SSH_ARGS_AGENT_FORWARDING}"
-    print(f"Connecting to {con}")
+    logger.info(f"Connecting to {con}")
     execv(ssh_executable, args.split(" "))
 
 
 def download(con: Connection, remote_file_path: str, local_file_path: str) -> None:
+    logger.debug(f"Establishing connection {con}")
     if con.with_bastion:
         with SSH(
             host=con.bastion_hostname,
