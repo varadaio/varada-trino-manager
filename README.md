@@ -15,11 +15,14 @@ Usage: vtm [OPTIONS] COMMAND [ARGS]...
   Varada trino manager
 
 Options:
-  --help  Show this message and exit.
+  -v, --verbose
+  --help         Show this message and exit.
 
 Commands:
+  config  Config related commands
   etc     More utilities
   logs    Logs related commands
+  rules   Rules utility commands
   server  Server management related commands
   ssh     SSH related operations
 ```
