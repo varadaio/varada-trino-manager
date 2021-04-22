@@ -1,23 +1,25 @@
 from json import dumps
 from typing import Tuple
+from logbook import WARNING
 from .constants import Paths
-from logbook import DEBUG, INFO
+from .connections import PrestoRest
 from .configuration import get_config
 from .rest_commands import RestCommands
-from click import group, argument, option, echo
 from .utils import read_file_as_json, logger
 from .remote import parallel_download, parallel_ssh_execute, rest_execute, ssh_session
-from .connections import PrestoRest
+from click import group, argument, option, echo, Path as ClickPath, exceptions
 
 
-@option("-v", "--verbose", is_flag=True, default=False)
+@option("-v", "--verbose", count=True)
 @group()
 def main(verbose):
     """
     Varada trino manager
     """
-    logger.level = DEBUG if verbose else INFO
-
+    if verbose > 5:
+        logger.error('Can get up to 5 "-v"')
+        raise exceptions.Exit(code=1)
+    logger.level = WARNING if verbose == 0 else 10 + verbose # logbook levels run from 10 to 15
 
 @main.group()
 def ssh():
@@ -123,8 +125,15 @@ def clear():
     parallel_ssh_execute(command="rm /var/log/presto/*")
 
 
+@option(
+    "-d",
+    "--destination-dir",
+    type=ClickPath(),
+    default=None,
+    help="Destination dir to save the logs",
+)
 @logs.command()
-def collect():
+def collect(destination_dir: str):
     """
     Collect fresh logs and store in logs dir, overwiting existing one
     """
@@ -143,8 +152,9 @@ def collect():
         "sudo chmod 777 /tmp/custom_logs.tar.gz",
     ]
     parallel_ssh_execute(command="\n".join(commands))
+    dir_path = Paths.logs_path if destination_dir is None else destination_dir
     parallel_download(
-        remote_file_path="/tmp/custom_logs.tar.gz", local_dir_path=Paths.logs_path
+        remote_file_path="/tmp/custom_logs.tar.gz", local_dir_path=dir_path
     )
 
 
@@ -197,12 +207,18 @@ def config():
 
 @config.command()
 def show():
+    """
+    Show current configuration
+    """
     data = read_file_as_json(Paths.config_path)
     echo(dumps(data, indent=2))
 
 
 @config.command()
 def example():
+    """
+    Show configuration example
+    """
     data = {
         "coordinator": "coordinator.example.com",
         "workers": [
@@ -213,14 +229,14 @@ def example():
         "port": 22,
         "username": "root",
     }
-    echo(f'Simple:\n{dumps(data, indent=2)}')
-    echo('') # new line
+    echo(f"Simple:\n{dumps(data, indent=2)}")
+    echo("")  # new line
     data["bastion"] = {
         "hostname": "bastion.example.com",
         "port": 22,
         "username": "root",
     }
-    echo(f'With bastion:\n{dumps(data, indent=2)}')
+    echo(f"With bastion:\n{dumps(data, indent=2)}")
 
 
 if __name__ == "__main__":
