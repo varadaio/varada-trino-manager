@@ -10,7 +10,7 @@ from .remote import parallel_download, parallel_ssh_execute, rest_execute, ssh_s
 from click import group, argument, option, echo, Path as ClickPath, exceptions
 
 
-@option("-v", "--verbose", count=True)
+@option("-v", "--verbose", count=True, help="Be more verbose")
 @group()
 def main(verbose):
     """
