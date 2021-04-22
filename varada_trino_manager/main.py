@@ -19,7 +19,10 @@ def main(verbose):
     if verbose > 5:
         logger.error('Can get up to 5 "-v"')
         raise exceptions.Exit(code=1)
-    logger.level = WARNING if verbose == 0 else 10 + verbose # logbook levels run from 10 to 15
+    logger.level = (
+        WARNING if verbose == 0 else 10 + verbose
+    )  # logbook levels run from 10 to 15
+
 
 @main.group()
 def ssh():
@@ -33,7 +36,9 @@ def ssh():
 @ssh.command()
 def connect(node):
     """
-    Start ssh session with one of the nodes, example: coordinator/node-1,node-2
+    Start ssh session with one of the nodes
+    example: coordinator/node-1/node-2
+    default: coordinator
     """
     ssh_session(node=node)
 
@@ -54,6 +59,18 @@ def etc():
     More utilities
     """
     pass
+
+
+@argument("node", default="coordinator", nargs=1)
+@etc.command()
+def info(node):
+    """
+    Access v1/info of selected node
+    example: coordinator/node-1/node-2
+    default: coordinator
+    """
+    con = get_config().get_connection_by_name(node)
+    echo(rest_execute(con=con, rest_client_type=PrestoRest, func=RestCommands.info))
 
 
 @etc.command()
@@ -98,15 +115,6 @@ def restart():
     Restart presto service
     """
     parallel_ssh_execute(command="sudo systemctl restart presto")
-
-
-@server.command()
-def status():
-    """
-    Checks if the cluster is successfully running
-    """
-    con = get_config().get_connection_by_name("coordinator")
-    echo(rest_execute(con=con, rest_client_type=PrestoRest, func=RestCommands.status))
 
 
 @main.group()
@@ -215,9 +223,9 @@ def show():
 
 
 @config.command()
-def example():
+def template():
     """
-    Show configuration example
+    Show configuration template
     """
     data = {
         "coordinator": "coordinator.example.com",

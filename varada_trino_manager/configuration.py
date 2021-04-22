@@ -1,19 +1,19 @@
 from __future__ import annotations
-from .constants import Paths, InvalidNodeError
-from dataclasses import dataclass
-from .utils import read_file_as_json
+from click import exceptions
 from typing import List, Union
+from .utils import read_file_as_json, logger
+from .constants import Paths, InvalidNodeError
+from pydantic import BaseModel, StrictStr, StrictInt, error_wrappers
 
 
-@dataclass
-class Connection:
-    hostname: str
-    port: str
-    username: str
-    bastion_hostname: Union[str, None]
-    bastion_port: Union[int, None]
-    bastion_username: Union[str, None]
-    role: str
+class Connection(BaseModel):
+    hostname: StrictStr
+    port: StrictInt
+    username: StrictStr
+    bastion_hostname: Union[StrictStr, None]
+    bastion_port: Union[StrictInt, None]
+    bastion_username: Union[StrictStr, None]
+    role: StrictStr
 
     @property
     def with_bastion(self) -> bool:
@@ -30,37 +30,39 @@ class Connection:
         return f"<{self.role}> {bastion_connection_string} {self.username}@{self.hostname}:{self.port}"
 
 
-@dataclass
-class BastionConfiguration:
-    hostname: Union[str, None]
-    port: Union[int, None]
-    username: Union[str, None]
+class BastionConfiguration(BaseModel):
+    hostname: Union[StrictStr, None]
+    port: Union[StrictInt, None]
+    username: Union[StrictStr, None]
 
 
-@dataclass
-class Configuration:
-    coordinator: str
-    workers: List[str]
-    username: str
-    port: int
+class Configuration(BaseModel):
+    coordinator: StrictStr
+    workers: List[StrictStr]
+    username: StrictStr
+    port: StrictInt
     bastion: BastionConfiguration
 
     @classmethod
     def from_json(cls, file_path: str) -> Configuration:
         data = read_file_as_json(file_path=file_path)
         bastion_data = data.get("bastion", dict())
-        bastion = BastionConfiguration(
-            hostname=bastion_data.get("hostname"),
-            port=bastion_data.get("port"),
-            username=bastion_data.get("username"),
-        )
-        return cls(
-            coordinator=data.get("coordinator"),
-            workers=data.get("workers"),
-            username=data.get("username"),
-            port=data.get("port"),
-            bastion=bastion,
-        )
+        try:
+            bastion = BastionConfiguration(
+                hostname=bastion_data.get("hostname"),
+                port=bastion_data.get("port"),
+                username=bastion_data.get("username"),
+            )
+            return cls(
+                coordinator=data.get("coordinator"),
+                workers=data.get("workers"),
+                username=data.get("username"),
+                port=data.get("port"),
+                bastion=bastion,
+            )
+        except error_wrappers.ValidationError as e:
+            logger.error(f"Configuration is malformed: {e}")
+            raise exceptions.Exit(code=1)
 
     @property
     def number_of_nodes(self) -> int:

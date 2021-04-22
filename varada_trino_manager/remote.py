@@ -12,7 +12,6 @@ from concurrent.futures import ThreadPoolExecutor, Future
 
 
 def rest_execute(con: Connection, rest_client_type: Rest, func, *args, **kw):
-    logger.debug(f"Establishing connection {con}")
     if con.with_bastion:
         with SSHTunnelForwarder(
             ssh_address_or_host=(con.bastion_hostname, con.bastion_port),

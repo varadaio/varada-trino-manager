@@ -29,6 +29,7 @@ setup(
         "jsons==1.4.2",
         "sshtunnel==0.4.0",
         "Logbook==1.5.3",
+        "pydantic==1.8.1"
     ],
     extras_require={
         "dev": [
