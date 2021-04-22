@@ -1,6 +1,8 @@
 from os import makedirs
 from .utils import logger
+from getpass import getuser
 from dataclasses import dataclass
+from trino.dbapi import Connection
 from os.path import exists, dirname
 from paramiko.channel import Channel
 from paramiko.transport import Transport
@@ -21,13 +23,7 @@ class Client:
 class SSH(Client):
     LOCALHOST: str = "127.0.0.1"
 
-    def __init__(
-        self,
-        host: str,
-        port: int,
-        user: str,
-        sock: Channel = None
-    ):
+    def __init__(self, host: str, port: int, user: str, sock: Channel = None):
         self.__host = host
         self.__port = port
         self.__user = user
@@ -60,22 +56,14 @@ class SSH(Client):
         )
 
     def execute(self, command: str) -> str:
-        logger.debug(f'<{self.__host}>Executing: {command}')
+        logger.debug(f"<{self.__host}>Executing: {command}")
         _, stdout, _ = self.__client.exec_command(command=command)
         return stdout.read().decode()
 
 
 class SFTP(SSH):
-    def __init__(
-        self,
-        host: str,
-        port: int,
-        user: str,
-        sock: Channel = None
-    ):
-        super(SFTP, self).__init__(
-            host=host, port=port, user=user, sock=sock
-        )
+    def __init__(self, host: str, port: int, user: str, sock: Channel = None):
+        super(SFTP, self).__init__(host=host, port=port, user=user, sock=sock)
 
     def connect(self):
         super(SFTP, self).connect()
@@ -95,12 +83,14 @@ class Schemas:
     HTTP: str = "http"
     HTTPS: str = "https"
 
+
 def handle_response(func):
     def handle_response_wrapper(self, *args, **kw) -> Response:
         response = func(self, *args, **kw)
         if response.status_code == codes.ok:
             return response
         raise exceptions.HTTPError(response=response)
+
     return handle_response_wrapper
 
 
@@ -124,13 +114,13 @@ class Rest(Client):
     @handle_response
     def get(self, sub_url: str) -> Response:
         url = f"{self.url}/{sub_url}"
-        logger.debug(f'GET {url}')
+        logger.debug(f"GET {url}")
         return self.__client.get(url=url)
 
     @handle_response
     def post(self, sub_url: str, json_data: dict = None) -> Response:
         url = f"{self.url}/{sub_url}"
-        logger.debug(f'POST {url} {json_data}')
+        logger.debug(f"POST {url} {json_data}")
         return self.__client.post(url=url, json=json_data)
 
 
@@ -148,3 +138,33 @@ class VaradaRest(Rest):
     @property
     def url(self) -> str:
         return f"{super(VaradaRest, self).url}/v1/ext/varada"
+
+
+class Trino(Client):
+
+    PORT = 8080
+
+    def __init__(self, host, port=None, username=None, http_schema=Schemas.HTTP):
+        self.__host = host
+        self.__port = self.PORT if port is None else port
+        self.__username = getuser() if username is None else username
+        self.__http_schema = http_schema
+
+    def connect(self):
+        self.__client = Connection(
+            host=self.__host,
+            port=self.__port,
+            user=self.__username,
+            http_scheme=self.__http_schema,
+            http_headers={},
+        )
+
+    def close(self):
+        del self.__client
+
+    def execute(self, query):
+        with self.__client as con:
+            cursor = con.cursor()
+            cursor.execute(query)
+            result = cursor.fetchall()
+        return result

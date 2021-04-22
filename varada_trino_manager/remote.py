@@ -2,16 +2,17 @@ from .utils import logger
 from typing import List, Tuple
 from .constants import Common
 from os import execv, makedirs
+from typing import Union
 from traceback import format_exc
 from subprocess import check_output
-from .connections import SSH, SFTP, Rest
 from sshtunnel import SSHTunnelForwarder
+from .connections import SSH, SFTP, Rest, Trino
 from .configuration import get_config, Connection
 from os.path import basename, dirname, join as path_join
 from concurrent.futures import ThreadPoolExecutor, Future
 
 
-def rest_execute(con: Connection, rest_client_type: Rest, func, *args, **kw):
+def rest_execute(con: Connection, rest_client_type: Union[Rest, Trino], func, *args, **kw):
     if con.with_bastion:
         with SSHTunnelForwarder(
             ssh_address_or_host=(con.bastion_hostname, con.bastion_port),
@@ -22,7 +23,7 @@ def rest_execute(con: Connection, rest_client_type: Rest, func, *args, **kw):
             host, port = tunnel.local_bind_address
             with rest_client_type(host=host, port=port) as client:
                 return func(client, *args, **kw)
-    with rest_client_type(host=con.hostname) as client:
+    with rest_client_type(host=con.hostname, port=rest_client_type.PORT) as client:
         return func(client, *args, **kw)
 
 

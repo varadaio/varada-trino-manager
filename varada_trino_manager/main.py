@@ -2,9 +2,9 @@ from json import dumps
 from typing import Tuple
 from logbook import WARNING
 from .constants import Paths
-from .connections import PrestoRest
 from .configuration import get_config
 from .rest_commands import RestCommands
+from .connections import PrestoRest, Trino
 from .utils import read_file_as_json, logger
 from .remote import parallel_download, parallel_ssh_execute, rest_execute, ssh_session
 from click import group, argument, option, echo, Path as ClickPath, exceptions
@@ -115,6 +115,20 @@ def restart():
     Restart presto service
     """
     parallel_ssh_execute(command="sudo systemctl restart presto")
+
+
+@server.command()
+def status():
+    """
+    Checks if all nodes are connected
+    """
+    con = get_config().get_connection_by_name("coordinator")
+    if not rest_execute(
+        con=con, rest_client_type=Trino, func=RestCommands.is_all_nodes_connected
+    ):
+        echo("Not all nodes are connected")
+    else:
+        echo("All nodes are connected")
 
 
 @main.group()
