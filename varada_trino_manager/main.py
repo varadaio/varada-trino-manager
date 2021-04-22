@@ -55,15 +55,6 @@ def etc():
 
 
 @etc.command()
-def show_deployment():
-    """
-    Shows the current configuration
-    """
-    data = read_file_as_json(Paths.config_path)
-    echo(dumps(data, indent=2))
-
-
-@etc.command()
 def is_panic():
     """
     Verify if a node is in panic
@@ -194,6 +185,42 @@ def delete():
     Delete rule from the cluster
     """
     pass
+
+
+@main.group()
+def config():
+    """
+    Config related commands
+    """
+    pass
+
+
+@config.command()
+def show():
+    data = read_file_as_json(Paths.config_path)
+    echo(dumps(data, indent=2))
+
+
+@config.command()
+def example():
+    data = {
+        "coordinator": "coordinator.example.com",
+        "workers": [
+            "worker1.example.com",
+            "worker2.example.com",
+            "worker3.example.com",
+        ],
+        "port": 22,
+        "username": "root",
+    }
+    echo(f'Simple:\n{dumps(data, indent=2)}')
+    echo('') # new line
+    data["bastion"] = {
+        "hostname": "bastion.example.com",
+        "port": 22,
+        "username": "root",
+    }
+    echo(f'With bastion:\n{dumps(data, indent=2)}')
 
 
 if __name__ == "__main__":

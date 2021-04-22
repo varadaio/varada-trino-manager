@@ -60,7 +60,7 @@ class SSH(Client):
         )
 
     def execute(self, command: str) -> str:
-        logger.debug(f'executing: {command}')
+        logger.debug(f'<{self.__host}>Executing: {command}')
         _, stdout, _ = self.__client.exec_command(command=command)
         return stdout.read().decode()
 
@@ -74,7 +74,7 @@ class SFTP(SSH):
         sock: Channel = None
     ):
         super(SFTP, self).__init__(
-            host=host, port=port, user=user, sock=sock, logger=logger
+            host=host, port=port, user=user, sock=sock
         )
 
     def connect(self):
