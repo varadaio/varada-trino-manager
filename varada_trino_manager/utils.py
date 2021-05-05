@@ -1,7 +1,15 @@
+from re import I
 from sys import stdout
 from json import loads
 from os.path import exists
-from logbook import StreamHandler, Logger
+from logbook import StreamHandler, Logger, DEBUG, INFO, WARNING, ERROR
+
+LOG_LEVELS = {
+    1: ERROR,
+    2: WARNING,
+    3: INFO,
+    4: DEBUG,
+}
 
 
 def read_file(file_path: str) -> str:

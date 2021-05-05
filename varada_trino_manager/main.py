@@ -6,7 +6,7 @@ from .constants import Paths
 from .configuration import get_config
 from .rest_commands import RestCommands
 from .connections import PrestoRest, Trino
-from .utils import read_file_as_json, logger
+from .utils import read_file_as_json, logger, LOG_LEVELS
 from .remote import parallel_download, parallel_ssh_execute, rest_execute, ssh_session
 from click import group, argument, option, echo, Path as ClickPath, exceptions
 
@@ -17,12 +17,10 @@ def main(verbose):
     """
     Varada trino manager
     """
-    if verbose > 5:
-        logger.error('Can get up to 5 "-v"')
+    if verbose > 4:
+        logger.error('Can get up to 4 "-v"')
         raise exceptions.Exit(code=1)
-    logger.level = (
-        WARNING if verbose == 0 else 10 + verbose
-    )  # logbook levels run from 10 to 15
+    logger.level = WARNING if verbose == 0 else LOG_LEVELS[verbose]
 
 
 @main.group()
