@@ -17,4 +17,4 @@ class Paths:
 
 class Common:
     SSH_ARGS = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o TCPKeepAlive=yes -o ServerAliveInterval=150 -o ServerAliveCountMax=4"
-    SSH_ARGS_AGENT_FORWARDING = f"{SSH_ARGS} -A"
+    SSH_ARGS_AGENT_FORWARDING = f"{SSH_ARGS} -A -tt"

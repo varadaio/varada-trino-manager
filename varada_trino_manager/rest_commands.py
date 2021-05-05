@@ -13,6 +13,7 @@ class RestCommands:
     def info(client: Rest):
         return client.get("info").json()
 
+    @staticmethod
     @return_single_value
     def is_all_nodes_connected(client: Trino) -> bool:
         return client.execute(

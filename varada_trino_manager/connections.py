@@ -2,42 +2,78 @@ from os import makedirs
 from .utils import logger
 from getpass import getuser
 from dataclasses import dataclass
-from trino.dbapi import Connection
 from os.path import exists, dirname
 from paramiko.channel import Channel
+from .configuration import Connection
+from abc import ABCMeta, abstractmethod
+from sshtunnel import SSHTunnelForwarder
 from paramiko.transport import Transport
 from paramiko.sftp_client import SFTPClient
 from paramiko import AutoAddPolicy, SSHClient
+from trino.dbapi import Connection as TrinoConnection
 from requests import Session, Response, codes, exceptions
 
 
-class Client:
+class Client(metaclass=ABCMeta):
+    def __init__(self, con: Connection, port: int):
+        self.__con = con
+        self.__port = port
+        self.__host = con.hostname
+        self.__tuneel = None
+
+    @property
+    def host(self):
+        return self.__host
+
+    @property
+    def port(self):
+        return self.__port
+
     def __enter__(self):
+        if self.__con.with_bastion:
+            self.__tuneel = SSHTunnelForwarder(
+                ssh_address_or_host=(
+                    self.__con.bastion_hostname,
+                    self.__con.bastion_port,
+                ),
+                ssh_username=self.__con.bastion_username,
+                remote_bind_address=(self.__con.hostname, self.PORT),
+                allow_agent=True,
+            )
+            self.__tuneel.start()
+            self.__host, self.__port = self.__tuneel.local_bind_address
         self.connect()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+        if self.__con.with_bastion:
+            self.__tuneel.stop()
+
+    @abstractmethod
+    def connect(self):
+        pass
+
+    @abstractmethod
+    def close(self):
+        pass
 
 
 class SSH(Client):
+    PORT = 22
     LOCALHOST: str = "127.0.0.1"
 
-    def __init__(self, host: str, port: int, user: str, sock: Channel = None):
-        self.__host = host
-        self.__port = port
-        self.__user = user
-        self.__sock = sock
-        self.__client = SSHClient()
-        self.__transport = None
+    def __init__(self, con: Connection):
+        super(SSH, self).__init__(con=con, port=con.port)
+        self.__user = con.username
 
     def connect(self):
+        self.__client = SSHClient()
         self.__client.set_missing_host_key_policy(AutoAddPolicy)
         self.__client.connect(
-            hostname=self.__host,
-            port=self.__port,
+            hostname=self.host,
+            port=self.port,
             username=self.__user,
-            sock=self.__sock,
             allow_agent=True,
         )
 
@@ -47,24 +83,13 @@ class SSH(Client):
     def get_transport(self) -> Transport:
         return self.__client.get_transport()
 
-    def get_channel(self, target_host: str, target_port: int) -> Channel:
-        destination_address = (target_host, target_port)
-        source_address = (self.LOCALHOST, self.__port)
-        self.__transport = self.__client.get_transport()
-        return self.__transport.open_channel(
-            "direct-tcpip", dest_addr=destination_address, src_addr=source_address
-        )
-
     def execute(self, command: str) -> str:
-        logger.debug(f"<{self.__host}>Executing: {command}")
+        logger.debug(f"<{self.host}>Executing: {command}")
         _, stdout, _ = self.__client.exec_command(command=command)
         return stdout.read().decode()
 
 
 class SFTP(SSH):
-    def __init__(self, host: str, port: int, user: str, sock: Channel = None):
-        super(SFTP, self).__init__(host=host, port=port, user=user, sock=sock)
-
     def connect(self):
         super(SFTP, self).connect()
         self.__client = SFTPClient.from_transport(self.get_transport())
@@ -95,9 +120,8 @@ def handle_response(func):
 
 
 class Rest(Client):
-    def __init__(self, host, port: int = None, http_schema: str = Schemas.HTTP):
-        self.__host = host
-        self.__port = port if port is not None else self.PORT
+    def __init__(self, con: Connection, http_schema: str = Schemas.HTTP):
+        super(Rest, self).__init__(con=con, port=self.PORT)
         self.__http_schema = http_schema
 
     def connect(self):
@@ -109,7 +133,7 @@ class Rest(Client):
 
     @property
     def url(self) -> str:
-        return f"{self.__http_schema}://{self.__host}:{self.__port}"
+        return f"{self.__http_schema}://{self.host}:{self.port}"
 
     @handle_response
     def get(self, sub_url: str) -> Response:
@@ -144,16 +168,17 @@ class Trino(Client):
 
     PORT = 8080
 
-    def __init__(self, host, port=None, username=None, http_schema=Schemas.HTTP):
-        self.__host = host
-        self.__port = self.PORT if port is None else port
+    def __init__(
+        self, con: Connection, username: str = None, http_schema: str = Schemas.HTTP
+    ):
+        super(Trino, self).__init__(con=con, port=self.PORT)
         self.__username = getuser() if username is None else username
         self.__http_schema = http_schema
 
     def connect(self):
-        self.__client = Connection(
-            host=self.__host,
-            port=self.__port,
+        self.__client = TrinoConnection(
+            host=self.host,
+            port=self.port,
             user=self.__username,
             http_scheme=self.__http_schema,
             http_headers={},
@@ -163,6 +188,7 @@ class Trino(Client):
         del self.__client
 
     def execute(self, query):
+        logger.debug(f"Executing: {query}")
         with self.__client as con:
             cursor = con.cursor()
             cursor.execute(query)
