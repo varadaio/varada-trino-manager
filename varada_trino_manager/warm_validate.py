@@ -1,12 +1,14 @@
-from click import exceptions
-from json import load
+from click import exceptions, echo
+from json import load, dumps
 from pathlib import Path
 from time import sleep
 from traceback import format_exc
 from trino.dbapi import connect
 from typing import Optional, Tuple
 from urllib.parse import urlparse
+from .configuration import Connection
 from .utils import logger
+from .connections import VaradaRest
 
 
 class WarmJmx:
@@ -83,47 +85,60 @@ def run_warmup_query(warm_query: str, presto_client: PrestoClient):
     presto_client.reset_session(EMPTY_Q)
 
 
-def run(presto_host: str, user: str, jsonpath: Path):
-    presto_client = get_presto_client(presto_host, user)
-    if not presto_client:
-        logger.error(f'Failed connecting to presto host on coordinator')
-        raise exceptions.Exit(code=1)
+def check_warmup_status(presto_client: PrestoClient, verify_started: bool = False) -> bool:
+    warm_status, _ = presto_client.execute(WARM_JMX_Q)
+    # since the returned value is always one line, we'll pop it to not have to ref index each time
+    warm_status = warm_status.pop()
+    logger.info(f'warm status: {warm_status}')
+    if verify_started:
+        logger.info(f'Check increment in 15 sec')
+        sleep(15)
+        new_warm_status, _ = presto_client.execute(WARM_JMX_Q)
+        new_warm_status = new_warm_status.pop()
+        logger.info(f'warm status: {new_warm_status}')
+        return (new_warm_status[WarmJmx.SCHEDULED] - new_warm_status[WarmJmx.FAILED] - new_warm_status[WarmJmx.SKIPPED_DEMOTER]
+                == new_warm_status[WarmJmx.FINISHED]) and new_warm_status[WarmJmx.STARTED] == warm_status[WarmJmx.STARTED]
+    return warm_status[WarmJmx.SCHEDULED] - warm_status[WarmJmx.FAILED] - warm_status[WarmJmx.SKIPPED_DEMOTER] \
+        == warm_status[WarmJmx.FINISHED]
 
-    try:
-        with open(jsonpath) as fd:
-            warmup_queries = load(fd)['warm_queries']
 
-    except Exception:
-        logger.error(f'Failed reading {jsonpath}')
-        logger.error(format_exc())
-        raise exceptions.Exit(code=1)
+def run(presto_host: str, user: str, jsonpath: Path, con: Connection):
+    with VaradaRest(con=con) as varada_rest:
+        presto_client = get_presto_client(presto_host, user)
+        if not presto_client:
+            logger.error(f'Failed connecting to presto host on coordinator')
+            raise exceptions.Exit(code=1)
+        try:
+            with open(jsonpath) as fd:
+                warmup_queries = load(fd)['warm_queries']
+        except Exception:
+            logger.error(f'Failed reading {jsonpath}')
+            logger.error(format_exc())
+            raise exceptions.Exit(code=1)
 
-    # long warmup loop - verify warmup query
-    for warm_q in warmup_queries:
-        warmup_complete = False
-        while not warmup_complete:
+        # long warmup loop - verify warmup query
+        for warm_q in warmup_queries:
+            warmup_complete = False
             run_warmup_query(warm_query=warm_q, presto_client=presto_client)
             sleep(3)
-            warm_status, _ = presto_client.execute(WARM_JMX_Q)
-            # since the returned value is always one line, we'll pop it to not have to ref index each time
-            warm_status = warm_status.pop()
-            logger.info(f'warm status: {warm_status}')
-            while warm_status[WarmJmx.SCHEDULED] - warm_status[WarmJmx.FAILED] - warm_status[WarmJmx.SKIPPED_DEMOTER] \
-                    - warm_status[WarmJmx.SKIPPED_QUEUE_SIZE] != warm_status[WarmJmx.FINISHED]:
-                logger.info(f'warm status: {warm_status}, check again in 1 min')
-                sleep(60)
-                warm_status, _ = presto_client.execute(WARM_JMX_Q)
-                warm_status = warm_status.pop()
-            logger.info(f'warm_scheduled: {warm_status[WarmJmx.SCHEDULED]} - warm_skipped: '
-                        f'{warm_status[WarmJmx.FAILED] + warm_status[WarmJmx.SKIPPED_DEMOTER] + warm_status[WarmJmx.SKIPPED_QUEUE_SIZE]} '
-                        f'eq warm_finished: {warm_status[WarmJmx.FINISHED]}')
-            logger.info(f'warmup iteration complete, checking no additional warmup needed')
-            run_warmup_query(warm_query=warm_q, presto_client=presto_client)
-            warm_status, _ = presto_client.execute(WARM_JMX_Q)
-            warm_status = warm_status.pop()
-            sleep(5)
-            new_warm_status, _ = presto_client.execute(WARM_JMX_Q)
-            new_warm_status = new_warm_status.pop()
-            if new_warm_status[WarmJmx.STARTED] == warm_status[WarmJmx.STARTED]:
-                logger.info(f'warm_started still: {new_warm_status[WarmJmx.STARTED]}, no additional warmup needed')
-                warmup_complete = True
+            while not warmup_complete:
+                while not check_warmup_status(presto_client=presto_client):
+                    logger.info(f'Warmup in progress, check again in 1 min')
+                    sleep(60)
+                logger.info(f'warm_scheduled - warm_skipped eq warm_finished')
+                logger.info(f'Warmup iteration complete, verifying no additional warmup needed')
+                run_warmup_query(warm_query=warm_q, presto_client=presto_client)
+                if not check_warmup_status(presto_client=presto_client, verify_started=True):
+                    logger.info(f'Additional warmup iteration in progress')
+                else:
+                    logger.info(f'Warmup iteration complete, moving to next warmup query')
+                    warmup_complete = True
+            try:
+                logger.info(f'row_group_count after warmup query: \n {warm_q}')
+                data = varada_rest.row_group_count().json()
+                echo(dumps(data, indent=2))
+            except Exception:
+                logger.error(f'Failed rest call to row_group_count')
+                logger.error(format_exc())
+
+        logger.info(f'Warmup complete')
