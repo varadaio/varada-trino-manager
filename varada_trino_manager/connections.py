@@ -3,7 +3,6 @@ from .utils import logger
 from getpass import getuser
 from dataclasses import dataclass
 from os.path import exists, dirname
-from paramiko.channel import Channel
 from .configuration import Connection
 from abc import ABCMeta, abstractmethod
 from sshtunnel import SSHTunnelForwarder
@@ -163,6 +162,8 @@ class VaradaRest(Rest):
     def url(self) -> str:
         return f"{super(VaradaRest, self).url}/v1/ext/varada"
 
+    def row_group_count(self):
+        return self.post(sub_url='row-group-count', json_data={"commandName": "all"})
 
 class Trino(Client):
 

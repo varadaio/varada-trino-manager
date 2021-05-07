@@ -237,7 +237,8 @@ def warm_and_validate(presto_host, user, jsonpath):
     """
     Warmup Varada per rules applied
     """
-    warm_validate(presto_host=presto_host, user=user, jsonpath=jsonpath)
+    con = get_config().get_connection_by_name("coordinator")
+    warm_validate(presto_host=presto_host, user=user, jsonpath=jsonpath, con=con)
 
 
 @main.group()
