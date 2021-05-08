@@ -1,14 +1,11 @@
-from click import exceptions, echo
-from json import load, dumps
-from pathlib import Path
 from time import sleep
-from traceback import format_exc
-from trino.dbapi import connect
-from typing import Optional, Tuple
-from urllib.parse import urlparse
-from .configuration import Connection
+from pathlib import Path
 from .utils import logger
-from .connections import VaradaRest
+from json import load, dumps
+from traceback import format_exc
+from click import exceptions, echo
+from .configuration import Connection
+from .connections import VaradaRest, Trino
 
 
 class WarmJmx:
@@ -30,62 +27,15 @@ WARM_JMX_Q = 'select sum(warm_scheduled) as warm_scheduled, ' \
              'from jmx.current.\"io.varada.presto:type=VaradaStatsWarmingService,name=warming-service.varada\"'
 
 
-class PrestoClient:
-    def __init__(self, host: str, port: int, user: str, catalog: str, schema: str):
-        self.client = connect(
-            host=host,
-            port=port,
-            user=user,
-            catalog=catalog,
-            schema=schema,
-            session_properties=dict()
-        )
 
-    def execute(self, query: str, fetch_all: bool = True) -> Tuple[list, dict]:
-        try:
-            logger.info(f'Executing: {query.encode()}')
-            with self.client as con:
-                cursor = con.cursor()
-                cursor.execute(query)
-                result =cursor.fetchall() if fetch_all else cursor.fetchone()
-            return result, cursor.stats
-        except Exception as e:
-            logger.error(f'Failed to execute query, reason: {e}')
-            raise exceptions.Exit(code=1)
-
-    def set_session(self, key: str, value) -> None:
-        value = f"'{value}'" if isinstance(value, str) else value
-        self.execute(f"SET SESSION {key}={value}")
-
-    def reset_session(self, key: str) -> None:
-        self.execute(f"RESET SESSION {key}")
-
-
-def get_presto_client(coordinator_url: str, user: str) -> Optional[PrestoClient]:
-    parsed_url = urlparse(coordinator_url)
-    if None in (parsed_url.hostname, parsed_url.port):
-        logger.error(f'Invalid coordinator url {coordinator_url}')
-        raise exceptions.Exit(code=1)
-    try:
-        return PrestoClient(host=parsed_url.hostname,
-                            port=parsed_url.port,
-                            user=user,
-                            catalog='system',   # This catalog always exists
-                            schema='runtime')
-    except Exception:
-        logger.error(f'Error creating presto client: {coordinator_url}')
-        logger.error(format_exc())
-        raise exceptions.Exit(code=1)
-
-
-def run_warmup_query(warm_query: str, presto_client: PrestoClient):
+def run_warmup_query(warm_query: str, presto_client: Trino):
     # set empty query for faster warm query
     presto_client.set_session(EMPTY_Q, True)
     presto_client.execute(warm_query)
     presto_client.reset_session(EMPTY_Q)
 
 
-def check_warmup_status(presto_client: PrestoClient, verify_started: bool = False) -> bool:
+def check_warmup_status(presto_client: Trino, verify_started: bool = False) -> bool:
     warm_status, _ = presto_client.execute(WARM_JMX_Q)
     # since the returned value is always one line, we'll pop it to not have to ref index each time
     warm_status = warm_status.pop()
@@ -102,20 +52,16 @@ def check_warmup_status(presto_client: PrestoClient, verify_started: bool = Fals
         == warm_status[WarmJmx.FINISHED]
 
 
-def run(presto_host: str, user: str, jsonpath: Path, con: Connection):
-    with VaradaRest(con=con) as varada_rest:
-        presto_client = get_presto_client(presto_host, user)
-        if not presto_client:
-            logger.error(f'Failed connecting to presto host on coordinator')
-            raise exceptions.Exit(code=1)
-        try:
-            with open(jsonpath) as fd:
-                warmup_queries = load(fd)['warm_queries']
-        except Exception:
-            logger.error(f'Failed reading {jsonpath}')
-            logger.error(format_exc())
-            raise exceptions.Exit(code=1)
+def run(user: str, jsonpath: Path, con: Connection):
+    try:
+        with open(jsonpath) as fd:
+            warmup_queries = load(fd)['warm_queries']
+    except Exception:
+        logger.error(f'Failed reading {jsonpath}')
+        logger.error(format_exc())
+        raise exceptions.Exit(code=1)
 
+    with VaradaRest(con=con) as varada_rest, Trino(con=con, username=user) as presto_client:
         # long warmup loop - verify warmup query
         for warm_q in warmup_queries:
             warmup_complete = False

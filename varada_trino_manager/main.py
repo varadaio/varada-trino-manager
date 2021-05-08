@@ -1,14 +1,14 @@
 from json import dumps
 from typing import Tuple
 from logbook import WARNING
-from .warm_validate import run as warm_validate
 from .constants import Paths
 from .configuration import get_config
 from .rest_commands import RestCommands
 from .connections import PrestoRest, Trino
+from .warm_validate import run as warm_validate
 from .utils import read_file_as_json, logger, LOG_LEVELS
-from .remote import parallel_download, parallel_ssh_execute, rest_execute, ssh_session
 from click import group, argument, option, echo, Path as ClickPath, exceptions
+from .remote import parallel_download, parallel_ssh_execute, rest_execute, ssh_session
 
 
 @option("-v", "--verbose", count=True, help="Be more verbose")
@@ -218,8 +218,6 @@ def delete():
     pass
 
 
-@option('-p', '--presto-host', required=True, default="http://localhost:8080",
-        help='Varada coordinator url. For example: http://1.2.3.4:8080')
 @option("-u", "--user", type=str, default='benchmarker', help='user for coordinator, default=benchmarker')
 @option("-j", "--jsonpath", type=ClickPath(exists=True), required=True, help="""Location of JSON with list of queries.
 JSON format as per the below example:
@@ -233,12 +231,12 @@ JSON format as per the below example:
 i.e. list of warm_queries where col1, col2,... colN are columns which have warmup rules applied
 """)
 @rules.command()
-def warm_and_validate(presto_host, user, jsonpath):
+def warm_and_validate(user, jsonpath):
     """
     Warmup Varada per rules applied
     """
     con = get_config().get_connection_by_name("coordinator")
-    warm_validate(presto_host=presto_host, user=user, jsonpath=jsonpath, con=con)
+    warm_validate(user=user, jsonpath=jsonpath, con=con)
 
 
 @main.group()
