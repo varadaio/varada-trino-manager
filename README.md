@@ -55,7 +55,7 @@ The app assumes an ssh agent is running, if you don't have one running please vi
 
 ## Configuration
 
-The app looks for configuration in `~/.vmt` directory unless it's instructed otherwise by setting an environment variable named `VARADA_TRINO_MANAGER_DIR`.
+The app looks for configuration in `~/.vtm` directory unless it's instructed otherwise by setting an environment variable named `VARADA_TRINO_MANAGER_DIR`.
 
 The app configuration is a file named `config.json`, the file schema is as follows (chose the one that suits you)
 ```

@@ -1,4 +1,5 @@
 from os import makedirs
+from typing import Tuple
 from .utils import logger
 from getpass import getuser
 from dataclasses import dataclass
@@ -188,10 +189,17 @@ class Trino(Client):
     def close(self):
         del self.__client
 
-    def execute(self, query):
+    def execute(self, query: str, fetch_all: bool = True) -> Tuple[list, dict]:
         logger.debug(f"Executing: {query}")
         with self.__client as con:
             cursor = con.cursor()
             cursor.execute(query)
-            result = cursor.fetchall()
-        return result
+            result = cursor.fetchall() if fetch_all else cursor.fetchone()
+        return result, cursor.stats
+
+    def set_session(self, key: str, value) -> None:
+        value = f"'{value}'" if isinstance(value, str) else value
+        self.execute(f"SET SESSION {key}={value}")
+
+    def reset_session(self, key: str) -> None:
+        self.execute(f"RESET SESSION {key}")
