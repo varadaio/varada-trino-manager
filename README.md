@@ -37,12 +37,14 @@ Options:
   --help         Show this message and exit.
 
 Commands:
-  config  Config related commands
-  etc     More utilities
-  logs    Logs related commands
-  rules   Rules utility commands
-  server  Server management related commands
-  ssh     SSH related operations
+  config     Config related commands
+  connector  Connector related commands
+  etc        More utilities
+  logs       Logs related commands
+  query      Query utility commands
+  rules      Rules utility commands
+  server     Server management related commands
+  ssh        SSH related operations
 ```
 
 ---
