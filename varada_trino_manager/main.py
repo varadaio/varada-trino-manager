@@ -6,6 +6,7 @@ from .configuration import get_config
 from .rest_commands import RestCommands
 from .connections import PrestoRest, Trino
 from .warm_validate import run as warm_validate
+from .run_queries import run as query_runner
 from .utils import read_file_as_json, logger, LOG_LEVELS
 from click import group, argument, option, echo, Path as ClickPath, exceptions
 from .remote import parallel_download, parallel_ssh_execute, rest_execute, ssh_session
@@ -279,6 +280,48 @@ def template():
         "username": "root",
     }
     echo(f"With bastion:\n{dumps(data, indent=2)}")
+
+
+@main.group()
+def query():
+    """
+    Query utility commands
+    """
+    pass
+
+
+@option("-j", "--jsonpath", type=ClickPath(exists=True), required=True, help="""Location of JSON with queries to be run.
+JSON format as per the below example:
+
+\b
+{
+    "Query1": "select count(*) from varada.<SCHEMA>.<TABLE>",
+    "Query2": "select col40 from varada.<SCHEMA>.<TABLE>",
+    "Query3": "select col45, col63 from varada.<SCHEMA>.<TABLE>"
+}
+\b
+
+i.e. dictionary of queries where the keys - "Query1", "Query2"... are the query names, and the values are the corresponding query SQL statements.
+""")
+@option("-c", "--concurrency", type=int, default=1, help='Concurrency factor for parallel queries execution')
+@option("-r", "--random", is_flag=True, default=False, help="Select random query. If specified will ignore query_list")
+@option("-i", "--iterations", type=int, default=1, help="Number of iterations to run")
+@argument("queries_list", nargs=-1)
+@query.command()
+def runner(jsonpath, concurrency, random, iterations, queries_list):
+    """
+    Run queries on Varada Cluster, per the following examples:
+
+    \b
+        vtm -vvvv query runner -j <queries.json> q1                 => Run q1 a single time, where q1 is the key in queries.json
+        vtm -vvvv query runner -j <queries.json> -i 3 q2,q3         => Run q2,q3 serially, iterate 3 times
+        vtm -vvvv query runner -j <queries.json> q1,q2,q3 q4,q5     => Run q1,q2,q3 serially, run in parallel q4,q5
+        vtm -vvvv query runner -j <queries.json> -c 6 -r            => Run randomly selected queries to run with concurrency 6
+    \b
+    """
+    con = get_config().get_connection_by_name("coordinator")
+    query_runner(user=con.username, jsonpath=jsonpath, concurrency=concurrency, random=random, iterations=iterations,
+                 queries_list=[q_series.split(',') for q_series in queries_list], con=con)
 
 
 if __name__ == "__main__":
