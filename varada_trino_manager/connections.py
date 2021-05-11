@@ -190,12 +190,16 @@ class Trino(Client):
         del self.__client
 
     def execute(self, query: str, fetch_all: bool = True) -> Tuple[list, dict]:
-        logger.debug(f"Executing: {query}")
-        with self.__client as con:
-            cursor = con.cursor()
-            cursor.execute(query)
-            result = cursor.fetchall() if fetch_all else cursor.fetchone()
-        return result, cursor.stats
+        try:
+            logger.debug(f"Executing: {query.encode()}")
+            with self.__client as con:
+                cursor = con.cursor()
+                cursor.execute(query)
+                result = cursor.fetchall() if fetch_all else cursor.fetchone()
+            return result, cursor.stats
+        except Exception as e:
+            logger.exception(f"Failed to execute query: {query}")
+            raise e
 
     def set_session(self, key: str, value) -> None:
         value = f"'{value}'" if isinstance(value, str) else value

@@ -1,9 +1,10 @@
 from time import sleep
+from json import dumps
 from pathlib import Path
 from .utils import logger
-from json import load, dumps
 from traceback import format_exc
 from click import exceptions, echo
+from .utils import read_file_as_json
 from .configuration import Connection
 from .connections import VaradaRest, Trino
 
@@ -25,7 +26,6 @@ WARM_JMX_Q = 'select sum(warm_scheduled) as warm_scheduled, ' \
              'sum(warm_skipped_due_queue_size) as warm_skipped_due_queue_size, ' \
              'sum(warm_skipped_due_demoter) as warm_skipped_due_demoter ' \
              'from jmx.current.\"io.varada.presto:type=VaradaStatsWarmingService,name=warming-service.varada\"'
-
 
 
 def run_warmup_query(warm_query: str, presto_client: Trino):
@@ -54,12 +54,13 @@ def check_warmup_status(presto_client: Trino, verify_started: bool = False) -> b
 
 def run(user: str, jsonpath: Path, con: Connection):
     try:
-        with open(jsonpath) as fd:
-            warmup_queries = load(fd)['warm_queries']
-    except Exception:
-        logger.error(f'Failed reading {jsonpath}')
-        logger.error(format_exc())
-        raise exceptions.Exit(code=1)
+        warmup_queries = read_file_as_json(jsonpath)['warm_queries']
+    except Exception as e:
+        if e is not FileNotFoundError:
+            logger.error(f'Failed reading {jsonpath}')
+            logger.error(format_exc())
+            raise exceptions.Exit(code=1)
+        raise
 
     with VaradaRest(con=con) as varada_rest, Trino(con=con, username=user) as presto_client:
         # long warmup loop - verify warmup query
