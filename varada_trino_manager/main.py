@@ -9,7 +9,13 @@ from .warm_validate import run as warm_validate
 from .run_queries import run as query_runner
 from .utils import read_file_as_json, logger, LOG_LEVELS
 from click import group, argument, option, echo, Path as ClickPath, exceptions
-from .remote import parallel_download, parallel_ssh_execute, rest_execute, ssh_session
+from .remote import (
+    parallel_download,
+    parallel_ssh_execute,
+    rest_execute,
+    ssh_session,
+    parallel_upload,
+)
 
 
 @option("-v", "--verbose", count=True, help="Be more verbose")
@@ -219,8 +225,19 @@ def delete():
     pass
 
 
-@option("-u", "--user", type=str, default='benchmarker', help='user for coordinator, default=benchmarker')
-@option("-j", "--jsonpath", type=ClickPath(exists=True), required=True, help="""Location of JSON with list of queries.
+@option(
+    "-u",
+    "--user",
+    type=str,
+    default="benchmarker",
+    help="user for coordinator, default=benchmarker",
+)
+@option(
+    "-j",
+    "--jsonpath",
+    type=ClickPath(exists=True),
+    required=True,
+    help="""Location of JSON with list of queries.
 JSON format as per the below example:
 \b
 {
@@ -230,7 +247,8 @@ JSON format as per the below example:
   }
 \b
 i.e. list of warm_queries where col1, col2,... colN are columns which have warmup rules applied
-""")
+""",
+)
 @rules.command()
 def warm_and_validate(user, jsonpath):
     """
@@ -324,5 +342,70 @@ def runner(jsonpath, concurrency, random, iterations, queries_list):
                  queries_list=[q_series.split(',') for q_series in queries_list], con=con)
 
 
-if __name__ == "__main__":
+@main.group()
+def connector():
+    """
+    Connector related commands
+    """
+
+
+@option(
+    "-t",
+    "--targz-path",
+    type=ClickPath(),
+    help="Path to targz file contains varada connector",
+    required=True,
+)
+@option(
+    "-p",
+    "--script-params",
+    type=str,
+    help="Params to pass to the connector install script",
+    default=None,
+)
+@option(
+    "-e",
+    "--external-install-script-path",
+    type=ClickPath(),
+    help="External install script path",
+    default=None,
+)
+@option(
+    "-i",
+    "--installation-dir",
+    type=str,
+    help="Remote installation directory",
+    default=None,
+)
+@connector.command()
+def install(targz_path: str, script_params: str, external_install_script_path: str, installation_dir: str):
+    """
+    Install Varada connector
+    """
+    parallel_upload(
+        local_file_path=targz_path, remote_file_path="/tmp/varada-connector.tar.gz"
+    )
+    if external_install_script_path:
+        parallel_upload(
+            local_file_path=external_install_script_path,
+            remote_file_path="/tmp/external-install.py",
+        )
+    commands = [
+        "sudo usermod -a -G disk $(whoami)",
+        "mkdir /tmp/varada-install",
+        "sudo mkdir -p /var/lib/presto/workerDB",
+        "tar -xvf /tmp/varada-connector.tar.gz -C /tmp/varada-install",
+        f"sudo chmod 777 -R {installation_dir}",
+        f"cp -R /tmp/varada-install/varada-connector-350/presto/plugin/varada {installation_dir}/plugin/.",
+        "sudo cp -R /tmp/varada-install/varada-connector-350/trc /usr/local/trc",
+        "sudo ln -sfn /usr/local/trc/trc_decoder /usr/local/bin/trc_decoder",
+        "cd /tmp/varada-install/varada-connector-350",
+        f"sudo python3 {'/tmp/external-install.py' if external_install_script_path else '/tmp/varada-install/varada-connector-350/varada/installer.py'} {script_params}",
+    ]
+    for task, hostname in parallel_ssh_execute("\n".join(commands)):
+        echo(f"{hostname}: {task.result()}")
+
+
+
+if __name__ == "__  main__":
     main()

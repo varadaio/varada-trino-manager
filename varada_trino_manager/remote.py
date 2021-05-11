@@ -42,6 +42,14 @@ def download(con: Connection, remote_file_path: str, local_file_path: str) -> No
     except Exception:
         logger.error(format_exc())
 
+def upload(con: Connection, local_file_path: str, remote_file_path: str) -> None:
+    logger.debug(f"Copying {con}{local_file_path} {remote_file_path}")
+    try:
+        with SFTP(con=con) as client:
+            return client.put(local_file_path=local_file_path, remote_file_path=remote_file_path)
+    except Exception:
+        logger.error(format_exc())
+
 
 def parallel_ssh_execute(command: str) -> List[Tuple[Future, str]]:
     config = get_config()
@@ -60,8 +68,8 @@ def parallel_download(
     remote_file_path: str, local_dir_path: str
 ) -> List[Tuple[Future, str]]:
     config = get_config()
+    tasks = []
     with ThreadPoolExecutor(max_workers=config.number_of_nodes) as tpx:
-        tasks = []
         for con in config.iter_connections():
             local_file_path = path_join(
                 local_dir_path, f"{con.role}-{con.hostname}", basename(remote_file_path)
@@ -74,6 +82,25 @@ def parallel_download(
                         con=con,
                         remote_file_path=remote_file_path,
                         local_file_path=local_file_path,
+                    ),
+                    con.hostname,
+                )
+            )
+    return tasks
+
+
+def parallel_upload(local_file_path: str, remote_file_path: str) -> List[Tuple[Future, str]]:
+    config = get_config()
+    tasks = []
+    with ThreadPoolExecutor(max_workers=config.number_of_nodes) as tpx:
+        for con in config.iter_connections():
+            tasks.append(
+                (
+                    tpx.submit(
+                        upload,
+                        con=con,
+                        local_file_path=local_file_path,
+                        remote_file_path=remote_file_path,
                     ),
                     con.hostname,
                 )
