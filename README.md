@@ -40,6 +40,7 @@ Commands:
   config  Config related commands
   etc     More utilities
   logs    Logs related commands
+  query   Query utility commands
   rules   Rules utility commands
   server  Server management related commands
   ssh     SSH related operations
