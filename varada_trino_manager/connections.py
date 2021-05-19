@@ -136,16 +136,16 @@ class Rest(Client):
         return f"{self.__http_schema}://{self.host}:{self.port}"
 
     @handle_response
-    def get(self, sub_url: str) -> Response:
+    def get(self, sub_url: str, headers: dict = None) -> Response:
         url = f"{self.url}/{sub_url}"
         logger.debug(f"GET {url}")
-        return self.__client.get(url=url)
+        return self.__client.get(url=url, headers=headers)
 
     @handle_response
-    def post(self, sub_url: str, json_data: dict = None) -> Response:
+    def post(self, sub_url: str, json_data: dict = None, headers: dict = None) -> Response:
         url = f"{self.url}/{sub_url}"
         logger.debug(f"POST {url} {json_data}")
-        return self.__client.post(url=url, json=json_data)
+        return self.__client.post(url=url, json=json_data, headers=headers)
 
 
 class PrestoRest(Rest):
@@ -154,6 +154,9 @@ class PrestoRest(Rest):
     @property
     def url(self) -> str:
         return f"{super(PrestoRest, self).url}/v1"
+
+    def query_json(self, query_id: str):
+        return self.get(sub_url=f'query/{query_id}?pretty', headers={'X-Trino-User': 'varada'})
 
 
 class VaradaRest(Rest):
@@ -165,6 +168,7 @@ class VaradaRest(Rest):
 
     def row_group_count(self):
         return self.post(sub_url='row-group-count', json_data={"commandName": "all"})
+
 
 class Trino(Client):
 

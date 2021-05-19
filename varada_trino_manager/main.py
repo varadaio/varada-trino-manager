@@ -1,4 +1,4 @@
-from json import dumps
+from json import dumps, dump
 from typing import Tuple
 from logbook import WARNING
 from .constants import Paths
@@ -7,6 +7,7 @@ from .rest_commands import RestCommands
 from .connections import PrestoRest, Trino
 from .warm_validate import run as warm_validate
 from .run_queries import run as query_runner
+from .query_json_jstack import run as query_json_jstack
 from .utils import read_file_as_json, logger, LOG_LEVELS
 from click import group, argument, option, echo, Path as ClickPath, exceptions
 from .remote import (
@@ -342,6 +343,32 @@ def runner(jsonpath, concurrency, random, iterations, queries_list):
                  queries_list=[q_series.split(',') for q_series in queries_list], con=con)
 
 
+@option("-d", "--destination-dir", type=ClickPath(), default=Paths.logs_path, help="Destination dir to save the json")
+@argument("query_id", nargs=1)
+@query.command()
+def json(query_id, destination_dir):
+    """
+    Get query json by query_id
+    Where query_id is the unique Trino Query Id, format example: 20210513_063641_00004_raiip
+    """
+    con = get_config().get_connection_by_name("coordinator")
+    logger.info(f'Getting query json for query_id {query_id}, saving to {destination_dir}/')
+    RestCommands.save_query_json(con=con, dest_dir=destination_dir, query_id=query_id)
+
+
+@option("-d", "--destination-dir", type=ClickPath(), default=Paths.logs_path, help="Destination dir to save the files")
+@option("-j", "--jsonpath", type=ClickPath(exists=True), required=True, help="Location of JSON file with query to run: {\"query_name\":\"sql to run\"}")
+@option("-w", "--jstack-wait", type=int, default=0.5, help="Number of seconds to wait between jstack collections, default 0.5")
+@argument("query_name", nargs=1)
+@query.command()
+def json_jstack(destination_dir, jsonpath, jstack_wait, query_name):
+    """
+    Run query and collect jstack from all nodes, collect query json once completed.
+    """
+    con = get_config().get_connection_by_name("coordinator")
+    query_json_jstack(user=con.username, con=con, jsonpath=jsonpath, query=query_name, jstack_wait=jstack_wait, dest_dir=destination_dir)
+
+
 @main.group()
 def connector():
     """
@@ -404,7 +431,6 @@ def install(targz_path: str, script_params: str, external_install_script_path: s
     ]
     for task, hostname in parallel_ssh_execute("\n".join(commands)):
         echo(f"{hostname}: {task.result()}")
-
 
 
 if __name__ == "__  main__":
