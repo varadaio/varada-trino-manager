@@ -1,31 +1,31 @@
-from .connections import Trino
-from .configuration import Connection
-from .utils import logger
-from click import exceptions
-from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from json import load, dumps
 from pathlib import Path
-from random import choice
 from typing import Tuple
-
+from random import choice
+from .utils import logger
+from json import load, dumps
+from .connections import Trino
+from click import exceptions, echo
+from collections import defaultdict
+from .configuration import Connection
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 overall_res = defaultdict(lambda: defaultdict(dict))
 
 
-def run_queries(serial_queries: dict, client: Trino, workload: int = 1) -> Tuple[dict, int]:
+def run_queries(serial_queries: dict, client: Trino, workload: int = 1, return_res: bool = False) -> Tuple[dict, int, list]:
     q_series_results = {}
     for query in serial_queries:
-        _, stats = client.execute(query=serial_queries[query])
-        q_series_results[query] = {"queryName": query, "queryId": stats["queryId"],
-                                   "elapsedTime": round(stats["elapsedTimeMillis"]*0.001, 3),
-                                   "cpuTime": round(stats["cpuTimeMillis"]*0.001, 3)}
-        logger.info(f'Query: {query} QueryId: {stats["queryId"]} '
-                    f'Single query execution time: {round(stats["elapsedTimeMillis"]*0.001, 3)} Seconds')
-    return q_series_results, workload
+        q_res, q_stats = client.execute(query=serial_queries[query])
+        q_series_results[query] = {"queryName": query, "queryId": q_stats["queryId"],
+                                   "elapsedTime": round(q_stats["elapsedTimeMillis"]*0.001, 3),
+                                   "cpuTime": round(q_stats["cpuTimeMillis"]*0.001, 3)}
+        logger.info(f'Query: {query} QueryId: {q_stats["queryId"]} '
+                    f'Single query execution time: {round(q_stats["elapsedTimeMillis"]*0.001, 3)} Seconds')
+    return q_series_results, workload, q_res if return_res else None
 
 
-def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: int, queries_list: list, con: Connection):
+def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: int, queries_list: list, con: Connection,
+        get_results: bool = False):
     try:
         with open(jsonpath) as fd:
             queries = load(fd)
@@ -35,7 +35,8 @@ def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: i
 
     # Validate all query ids found in JSON
     if queries_list:
-        logger.info(f'Run the following series of queries in parallel, for {iterations} iterations overall concurrency: {len(queries_list)*concurrency}:')
+        logger.info(f'Run the following series of queries in parallel, for {iterations} iterations overall concurrency:'
+                    f' {len(queries_list)*concurrency}:')
         for parallel_queries in queries_list:
             for qid in parallel_queries:
                 if qid not in queries:
@@ -52,23 +53,36 @@ def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: i
                     queries_to_run = [choice(list(queries.keys())) for _ in range(concurrency)]
                     logger.info(f'Randomly selected queries: {queries_to_run}, concurrency {concurrency}')
                     for query_id in queries_to_run:
-                        futures.append(executor.submit(run_queries, {query_id: f'--{query_id}\nEXPLAIN ANALYZE {queries[query_id]}'}, client))
+                        futures.append(executor.submit(run_queries,
+                                                       {query_id: f'--{query_id}\n {queries[query_id]}' if get_results
+                                                        else f'--{query_id}\nEXPLAIN ANALYZE {queries[query_id]}'},
+                                                       client,
+                                                       get_results,
+                                                       get_results))
                 else:
                     for _ in range(concurrency):
                         for series in queries_list:
-                            serial_queries = {query_id: f'--{query_id}\nEXPLAIN ANALYZE {queries[query_id]}' for query_id in series}
-                            futures.append(executor.submit(run_queries, serial_queries, client, queries_list.index(series)+1))
+                            serial_queries = {query_id: f'--{query_id}\n {queries[query_id]}' for query_id in series} \
+                                if get_results else \
+                                {query_id: f'--{query_id}\nEXPLAIN ANALYZE {queries[query_id]}' for query_id in series}
+                            futures.append(executor.submit(run_queries,
+                                                           serial_queries,
+                                                           client,
+                                                           queries_list.index(series)+1,
+                                                           get_results))
 
             queries_done = 0
             total_elapsed_time = 0
             for future in as_completed(futures):
-                query_res, workload = future.result()
-                for query_name, data in query_res.items():
-                    if query_res[query_name]:
+                query_stats, workload, query_results = future.result()
+                for query_name, data in query_stats.items():
+                    if query_stats[query_name]:
                         queries_done += 1
                         overall_res[f'iteration{iteration+1}'][f'workload{workload}'][f'{query_name}'] = data
                         total_elapsed_time += data["elapsedTime"]
                         logger.info(f'Query {query_name} elapsed time is {data["elapsedTime"]} Seconds, cpu time is {data["cpuTime"]} Seconds')
+                        if query_results:
+                            echo(f'Query {query_name} results:\n {query_results}')
 
             logger.info(f'Iteration {iteration+1} average elapsed time is {total_elapsed_time / queries_done} Seconds')
             logger.info(f'Iteration {iteration+1} total elapsed time is {total_elapsed_time} Seconds')
