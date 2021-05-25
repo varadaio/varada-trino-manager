@@ -402,11 +402,18 @@ def connector():
     "-i",
     "--installation-dir",
     type=str,
-    help="Remote installation directory",
+    help="Remote installation directory, for example - /usr/lib/presto",
+    default=None,
+)
+@option(
+    "-u",
+    "--user",
+    type=str,
+    help="User that runs the presto server",
     default=None,
 )
 @connector.command()
-def install(targz_path: str, script_params: str, external_install_script_path: str, installation_dir: str):
+def install(targz_path: str, script_params: str, external_install_script_path: str, installation_dir: str, user: str):
     """
     Install Varada connector
     """
@@ -419,10 +426,11 @@ def install(targz_path: str, script_params: str, external_install_script_path: s
             remote_file_path="/tmp/external-install.py",
         )
     commands = [
-        "sudo usermod -a -G disk $(whoami)",
+        f"sudo usermod -a -G disk {user if user else '$(whoami)'}",
         "mkdir /tmp/varada-install",
         "sudo mkdir -p /var/lib/presto/workerDB",
-        "tar -xvf /tmp/varada-connector.tar.gz -C /tmp/varada-install",
+        "sudo chmod 777 -R /var/lib/presto/workerDB",
+        "tar -zxf /tmp/varada-connector.tar.gz -C /tmp/varada-install",
         f"sudo chmod 777 -R {installation_dir}",
         f"cp -R /tmp/varada-install/varada-connector-350/presto/plugin/varada {installation_dir}/plugin/.",
         "sudo cp -R /tmp/varada-install/varada-connector-350/trc /usr/local/trc",
