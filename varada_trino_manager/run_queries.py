@@ -1,3 +1,4 @@
+from time import sleep
 from pathlib import Path
 from typing import Tuple
 from random import choice
@@ -24,8 +25,8 @@ def run_queries(serial_queries: dict, client: Trino, workload: int = 1, return_r
     return q_series_results, workload, q_res if return_res else None
 
 
-def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: int, queries_list: list, con: Connection,
-        get_results: bool = False):
+def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: int, sleep_time: int, queries_list: list,
+        con: Connection, get_results: bool = False):
     try:
         with open(jsonpath) as fd:
             queries = load(fd)
@@ -86,4 +87,7 @@ def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: i
 
             logger.info(f'Iteration {iteration+1} average elapsed time is {total_elapsed_time / queries_done} Seconds')
             logger.info(f'Iteration {iteration+1} total elapsed time is {total_elapsed_time} Seconds')
+            if sleep_time and iteration < iterations:
+                logger.info(f'Sleeping {sleep_time} seconds before next run')
+                sleep(sleep_time)
         logger.info(f'Overall run results: {dumps(overall_res, indent=2)}')

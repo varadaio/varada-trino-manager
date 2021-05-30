@@ -325,10 +325,11 @@ i.e. dictionary of queries where the keys - "Query1", "Query2"... are the query 
 @option("-c", "--concurrency", type=int, default=1, help='Concurrency factor for parallel queries execution')
 @option("-r", "--random", is_flag=True, default=False, help="Select random query. If specified will ignore query_list")
 @option("-i", "--iterations", type=int, default=1, help="Number of iterations to run")
+@option("-s", "--sleep", type=int, default=0, help="Number of seconds to sleep between iterations")
 @option("-g", "--get-results", is_flag=True, default=False, help="Print query results. Please mind the results set size for log readability and test machine mem size")
 @argument("queries_list", nargs=-1)
 @query.command()
-def runner(jsonpath, concurrency, random, iterations, queries_list, get_results):
+def runner(jsonpath, concurrency, random, iterations, sleep, queries_list, get_results):
     """
     Run queries on Varada Cluster, per the following examples:
 
@@ -341,7 +342,8 @@ def runner(jsonpath, concurrency, random, iterations, queries_list, get_results)
     """
     con = get_config().get_connection_by_name("coordinator")
     query_runner(user=con.username, jsonpath=jsonpath, concurrency=concurrency, random=random, iterations=iterations,
-                 queries_list=[q_series.split(',') for q_series in queries_list], con=con, get_results=get_results)
+                 sleep_time=sleep, queries_list=[q_series.split(',') for q_series in queries_list], con=con,
+                 get_results=get_results)
 
 
 @option("-d", "--destination-dir", type=ClickPath(), default=Paths.logs_path, help="Destination dir to save the json")
