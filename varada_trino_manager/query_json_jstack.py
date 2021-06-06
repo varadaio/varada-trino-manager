@@ -56,11 +56,15 @@ def run(user: str, con: Connection, jsonpath: Path, query: str, jstack_wait: int
         collect.start()
 
         logger.info(f'Running query {query}')
-        _, stats = trino_client.execute(query=queries[query])
-
-        logger.info("Query completed, stopping jstacks collection")
-        keep_collecting_jstack.clear()
-        collect.join()
+        try:
+            _, _ = trino_client.execute(query=queries[query])
+        except Exception as e:
+            logger.error(e)
+        finally:
+            query_id = trino_client.last_query_id
+            keep_collecting_jstack.clear()
+            logger.info("Query completed, stopping jstacks collection")
+            collect.join()
 
     # download jstack collection
     logger.info(f"Downloading jstacks to {dest_dir}/")
@@ -73,5 +77,5 @@ def run(user: str, con: Connection, jsonpath: Path, query: str, jstack_wait: int
     parallel_download(
         remote_file_path="/tmp/jstacks.tar.gz", local_dir_path=dest_dir
     )
-    logger.info(f'Getting query json for query_id {stats["queryId"]}, saving to {dest_dir}/')
-    RestCommands.save_query_json(con=con, dest_dir=dest_dir, query_id=stats["queryId"])
+    logger.info(f'Getting query json for query_id {query_id}, saving to {dest_dir}/')
+    RestCommands.save_query_json(con=con, dest_dir=dest_dir, query_id=query_id)

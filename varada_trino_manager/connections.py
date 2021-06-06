@@ -180,6 +180,7 @@ class Trino(Client):
         super(Trino, self).__init__(con=con, port=self.PORT)
         self.__username = getuser() if username is None else username
         self.__http_schema = http_schema
+        self.__last_query_id = None
 
     def connect(self):
         self.__client = TrinoConnection(
@@ -199,7 +200,9 @@ class Trino(Client):
             with self.__client as con:
                 cursor = con.cursor()
                 cursor.execute(query)
+                self.__last_query_id = cursor.stats.get('queryId')
                 result = cursor.fetchall() if fetch_all else cursor.fetchone()
+
             return result, cursor.stats
         except Exception as e:
             logger.exception(f"Failed to execute query: {query}")
@@ -211,3 +214,7 @@ class Trino(Client):
 
     def reset_session(self, key: str) -> None:
         self.execute(f"RESET SESSION {key}")
+
+    @property
+    def last_query_id(self) -> str:
+        return self.__last_query_id

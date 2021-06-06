@@ -44,7 +44,7 @@ def ssh():
 def connect(node):
     """
     Start ssh session with one of the nodes
-    example: coordinator/node-1/node-2
+    example: coordinator/node-0/node-1/node-2/...
     default: coordinator
     """
     ssh_session(node=node)
