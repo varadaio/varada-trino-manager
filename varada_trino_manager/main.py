@@ -81,15 +81,25 @@ def info(node):
 
 
 @etc.command()
-def is_panic():
+def is_panic_error():
     """
-    Verify if a node is in panic
+    Verify if a node is in panic or has errors in launcher.log
     """
-    command = "tail -n 30 /var/log/presto/launcher.log | grep -i panic | wc -l"
+    command = "tail -n 30 /var/log/presto/launcher.log | grep PANIC | wc -l"
     tasks = parallel_ssh_execute(command=command)
     for panic, hostname in tasks:
         if bool(int(panic.result().strip())):
             echo(f"found panic in {hostname}")
+        else:
+            echo(f"no panic found in {hostname}")
+    command = "tail -n 30 /var/log/presto/launcher.log | grep ERROR | wc -l"
+    tasks = parallel_ssh_execute(command=command)
+    for panic, hostname in tasks:
+        if bool(int(panic.result().strip())):
+            echo(f"found error in {hostname}")
+        else:
+            echo(f"no error found in {hostname}")
+
 
 
 @main.group()
