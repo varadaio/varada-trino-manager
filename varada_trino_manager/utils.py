@@ -23,6 +23,10 @@ def read_file_as_json(file_path: str) -> dict:
     return loads(read_file(file_path=file_path))
 
 
+def session_props_to_dict(properties: str)->dict:
+    return dict([obj.split('=') for obj in properties.split(',')])
+
+
 def init_logger():
     StreamHandler(stream=stdout).push_application()
     return Logger("varada-trino-manager")

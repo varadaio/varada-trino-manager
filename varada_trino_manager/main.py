@@ -1,4 +1,4 @@
-from json import dumps, dump
+from json import dumps
 from typing import Tuple
 from logbook import WARNING
 from .constants import Paths
@@ -8,8 +8,8 @@ from .connections import PrestoRest, Trino
 from .warm_validate import run as warm_validate
 from .run_queries import run as query_runner
 from .query_json_jstack import run as query_json_jstack
-from .utils import read_file_as_json, logger, LOG_LEVELS
 from click import group, argument, option, echo, Path as ClickPath, exceptions
+from .utils import read_file_as_json, logger, LOG_LEVELS, session_props_to_dict
 from .remote import (
     parallel_download,
     parallel_ssh_execute,
@@ -327,9 +327,10 @@ i.e. dictionary of queries where the keys - "Query1", "Query2"... are the query 
 @option("-i", "--iterations", type=int, default=1, help="Number of iterations to run")
 @option("-s", "--sleep", type=int, default=0, help="Number of seconds to sleep between iterations")
 @option("-g", "--get-results", is_flag=True, default=False, help="Print query results. Please mind the results set size for log readability and test machine mem size")
+@option("-p", "--session-properties", type=str, default=None, help="Session property(ies) to set prior to running the queries, in the form of: key=value or for multiple: key1=value1,key2=value2... ")
 @argument("queries_list", nargs=-1)
 @query.command()
-def runner(jsonpath, concurrency, random, iterations, sleep, queries_list, get_results):
+def runner(jsonpath, concurrency, random, iterations, sleep, queries_list, get_results, session_properties):
     """
     Run queries on Varada Cluster, per the following examples:
 
@@ -341,9 +342,11 @@ def runner(jsonpath, concurrency, random, iterations, sleep, queries_list, get_r
     \b
     """
     con = get_config().get_connection_by_name("coordinator")
+    properties = session_props_to_dict(session_properties)
+
     query_runner(user=con.username, jsonpath=jsonpath, concurrency=concurrency, random=random, iterations=iterations,
                  sleep_time=sleep, queries_list=[q_series.split(',') for q_series in queries_list], con=con,
-                 get_results=get_results)
+                 get_results=get_results, session_properties=properties)
 
 
 @option("-d", "--destination-dir", type=ClickPath(), default=Paths.logs_path, help="Destination dir to save the json")
@@ -362,14 +365,17 @@ def json(query_id, destination_dir):
 @option("-d", "--destination-dir", type=ClickPath(), default=Paths.logs_path, help="Destination dir to save the files")
 @option("-j", "--jsonpath", type=ClickPath(exists=True), required=True, help="Location of JSON file with query to run: {\"query_name\":\"sql to run\"}")
 @option("-w", "--jstack-wait", type=int, default=0.5, help="Number of seconds to wait between jstack collections, default 0.5")
+@option("-p", "--session-properties", type=str, default=None, help="Session property(ies) to set prior to running the queries, in the form of: key=value or for multiple: key1=value1,key2=value2... ")
 @argument("query_name", nargs=1)
 @query.command()
-def json_jstack(destination_dir, jsonpath, jstack_wait, query_name):
+def json_jstack(destination_dir, jsonpath, jstack_wait, query_name, session_properties):
     """
     Run query and collect jstack from all nodes, collect query json once completed.
     """
     con = get_config().get_connection_by_name("coordinator")
-    query_json_jstack(user=con.username, con=con, jsonpath=jsonpath, query=query_name, jstack_wait=jstack_wait, dest_dir=destination_dir)
+    properties = session_props_to_dict(session_properties)
+    query_json_jstack(user=con.username, con=con, jsonpath=jsonpath, query=query_name, jstack_wait=jstack_wait,
+                      dest_dir=destination_dir, session_properties=properties)
 
 
 @main.group()

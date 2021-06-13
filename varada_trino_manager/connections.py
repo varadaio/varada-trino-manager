@@ -175,11 +175,12 @@ class Trino(Client):
     PORT = 8080
 
     def __init__(
-        self, con: Connection, username: str = None, http_schema: str = Schemas.HTTP
+        self, con: Connection, username: str = None, http_schema: str = Schemas.HTTP, session_properties: dict = None
     ):
         super(Trino, self).__init__(con=con, port=self.PORT)
         self.__username = getuser() if username is None else username
         self.__http_schema = http_schema
+        self.__session_properties = session_properties
 
     def connect(self):
         self.__client = TrinoConnection(
@@ -188,6 +189,7 @@ class Trino(Client):
             user=self.__username,
             http_scheme=self.__http_schema,
             http_headers={},
+            session_properties=self.__session_properties,
         )
 
     def close(self):
@@ -205,8 +207,7 @@ class Trino(Client):
             logger.exception(f"Failed to execute query: {query}")
             raise e
 
-    def set_session(self, key: str, value) -> None:
-        value = f"'{value}'" if isinstance(value, str) else value
+    def set_session(self, key: str, value: str) -> None:
         self.execute(f"SET SESSION {key}={value}")
 
     def reset_session(self, key: str) -> None:

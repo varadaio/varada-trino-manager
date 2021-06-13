@@ -30,7 +30,7 @@ WARM_JMX_Q = 'select sum(warm_scheduled) as warm_scheduled, ' \
 
 def run_warmup_query(warm_query: str, presto_client: Trino):
     # set empty query for faster warm query
-    presto_client.set_session(EMPTY_Q, True)
+    presto_client.set_session(EMPTY_Q, 'true')
     presto_client.execute(warm_query)
     presto_client.reset_session(EMPTY_Q)
 

@@ -26,7 +26,7 @@ def run_queries(serial_queries: dict, client: Trino, workload: int = 1, return_r
 
 
 def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: int, sleep_time: int, queries_list: list,
-        con: Connection, get_results: bool = False):
+        con: Connection, get_results: bool = False, session_properties: dict = None):
     try:
         with open(jsonpath) as fd:
             queries = load(fd)
@@ -36,6 +36,8 @@ def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: i
 
     # Validate all query ids found in JSON
     if queries_list:
+        if session_properties:
+            logger.info(f'Running with session properties: {session_properties}')
         logger.info(f'Run the following series of queries in parallel, for {iterations} iterations overall concurrency:'
                     f' {len(queries_list)*concurrency}:')
         for parallel_queries in queries_list:
@@ -45,7 +47,7 @@ def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: i
                     raise exceptions.Exit(code=1)
             logger.info(f'Series {queries_list.index(parallel_queries)}: {parallel_queries}')
 
-    with Trino(con=con, username=user) as client:
+    with Trino(con=con, username=user, session_properties=session_properties) as client:
         for iteration in range(iterations):
             logger.info(f"Running: Iteration {iteration+1}")
             futures = []
