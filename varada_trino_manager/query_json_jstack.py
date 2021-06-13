@@ -28,7 +28,7 @@ def collect_jstack(wait: int, keep_running: Event):
         sleep(wait)
 
 
-def run(user: str, con: Connection, jsonpath: Path, query: str, jstack_wait: int, dest_dir: str):
+def run(user: str, con: Connection, jsonpath: Path, query: str, jstack_wait: int, dest_dir: str, session_properties: dict = None):
     try:
         with open(jsonpath) as fd:
             queries = load(fd)
@@ -47,14 +47,15 @@ def run(user: str, con: Connection, jsonpath: Path, query: str, jstack_wait: int
     ]
     parallel_ssh_execute(command="\n".join(dir_commands))
 
-    with Trino(con=con, username=user) as trino_client:
+    with Trino(con=con, username=user, session_properties=session_properties) as trino_client:
         # Start collecting jstack as Thread, then run query; once query has completed - stop collection
         logger.info(f"Start collecting jstacks, interval of {jstack_wait}Sec")
         keep_collecting_jstack = Event()
         keep_collecting_jstack.set()
         collect = Thread(target=collect_jstack, args=(jstack_wait, keep_collecting_jstack))
         collect.start()
-
+        if session_properties:
+            logger.info(f'Running query with session properties: {session_properties}')
         logger.info(f'Running query {query}')
         _, stats = trino_client.execute(query=queries[query])
 
