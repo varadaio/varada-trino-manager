@@ -352,7 +352,7 @@ def runner(jsonpath, concurrency, random, iterations, sleep, queries_list, get_r
     \b
     """
     con = get_config().get_connection_by_name("coordinator")
-    properties = session_props_to_dict(session_properties)
+    properties = session_props_to_dict(session_properties) if session_properties else None
 
     query_runner(user=con.username, jsonpath=jsonpath, concurrency=concurrency, random=random, iterations=iterations,
                  sleep_time=sleep, queries_list=[q_series.split(',') for q_series in queries_list], con=con,
@@ -383,7 +383,7 @@ def json_jstack(destination_dir, jsonpath, jstack_wait, query_name, session_prop
     Run query and collect jstack from all nodes, collect query json once completed.
     """
     con = get_config().get_connection_by_name("coordinator")
-    properties = session_props_to_dict(session_properties)
+    properties = session_props_to_dict(session_properties)  if session_properties else None
     query_json_jstack(user=con.username, con=con, jsonpath=jsonpath, query=query_name, jstack_wait=jstack_wait,
                       dest_dir=destination_dir, session_properties=properties)
 
