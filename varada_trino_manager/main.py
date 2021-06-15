@@ -383,7 +383,7 @@ def json_jstack(destination_dir, jsonpath, jstack_wait, query_name, session_prop
     Run query and collect jstack from all nodes, collect query json once completed.
     """
     con = get_config().get_connection_by_name("coordinator")
-    properties = session_props_to_dict(session_properties)  if session_properties else None
+    properties = session_props_to_dict(session_properties) if session_properties else None
     query_json_jstack(user=con.username, con=con, jsonpath=jsonpath, query=query_name, jstack_wait=jstack_wait,
                       dest_dir=destination_dir, session_properties=properties)
 
