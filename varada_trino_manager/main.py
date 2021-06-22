@@ -1,15 +1,15 @@
 from json import dumps
 from typing import Tuple
-from logbook import WARNING
 from .constants import Paths
 from .configuration import get_config
 from .rest_commands import RestCommands
 from .connections import PrestoRest, Trino
-from .warm_validate import run as warm_validate
 from .run_queries import run as query_runner
+from logging import INFO, DEBUG, StreamHandler
+from .warm_validate import run as warm_validate
 from .query_json_jstack import run as query_json_jstack
-from click import group, argument, option, echo, Path as ClickPath, exceptions
-from .utils import read_file_as_json, logger, LOG_LEVELS, session_props_to_dict
+from click import group, argument, option, echo, Path as ClickPath
+from .utils import read_file_as_json, logger, session_props_to_dict
 from .remote import (
     parallel_download,
     parallel_ssh_execute,
@@ -19,16 +19,15 @@ from .remote import (
 )
 
 
-@option("-v", "--verbose", count=True, help="Be more verbose")
+@option("-v", "--verbose", is_flag=True, default=False, help="Be more verbose")
 @group()
 def main(verbose):
     """
     Varada trino manager
     """
-    if verbose > 4:
-        logger.error('Can get up to 4 "-v"')
-        raise exceptions.Exit(code=1)
-    logger.level = WARNING if verbose == 0 else LOG_LEVELS[verbose]
+    for handler in logger.handlers:
+        if type(handler) == StreamHandler:
+            handler.setLevel(DEBUG if verbose else INFO)
 
 
 @main.group()
