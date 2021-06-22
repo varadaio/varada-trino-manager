@@ -1,15 +1,8 @@
-from re import I
-from sys import stdout
-from json import loads
-from os.path import exists
-from logbook import StreamHandler, Logger, DEBUG, INFO, WARNING, ERROR
-
-LOG_LEVELS = {
-    1: ERROR,
-    2: WARNING,
-    3: INFO,
-    4: DEBUG,
-}
+from .constants import Paths
+from json import loads, load
+from logging.config import dictConfig
+from logging import Logger, getLogger
+from os.path import exists, dirname, abspath, join
 
 
 def read_file(file_path: str) -> str:
@@ -23,13 +16,19 @@ def read_file_as_json(file_path: str) -> dict:
     return loads(read_file(file_path=file_path))
 
 
-def session_props_to_dict(properties: str)->dict:
-    return dict([obj.split('=') for obj in properties.split(',')])
+def session_props_to_dict(properties: str) -> dict:
+    return {
+        key: value for obj in properties.split(",") for key, value in [obj.split("=")]
+    }
 
 
-def init_logger():
-    StreamHandler(stream=stdout).push_application()
-    return Logger("varada-trino-manager")
+def init_logger() -> Logger:
+    config_path = join(dirname(abspath(__file__)), "logging.json")
+    with open(config_path) as f:
+        logger_config = load(f)
+    logger_config["handlers"]["file"]["filename"] = f'{Paths.logs_path}/vtm.log'
+    dictConfig(logger_config)
+    return getLogger('vtm')
 
 
 logger = init_logger()
