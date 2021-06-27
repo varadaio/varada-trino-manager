@@ -1,7 +1,7 @@
 from os import makedirs
-from typing import Tuple
 from .utils import logger
 from getpass import getuser
+from typing import Tuple, Union
 from dataclasses import dataclass
 from os.path import exists, dirname
 from .configuration import Connection
@@ -142,7 +142,7 @@ class Rest(Client):
         return self.__client.get(url=url, headers=headers)
 
     @handle_response
-    def post(self, sub_url: str, json_data: dict = None, headers: dict = None) -> Response:
+    def post(self, sub_url: str, json_data: Union[dict, list] = None, headers: dict = None) -> Response:
         url = f"{self.url}/{sub_url}"
         logger.debug(f"POST {url} {json_data}")
         return self.__client.post(url=url, json=json_data, headers=headers)
@@ -168,6 +168,17 @@ class VaradaRest(Rest):
 
     def row_group_count(self):
         return self.post(sub_url='row-group-count', json_data={"commandName": "all"})
+
+    def get_warmup_rules(self):
+        rules = self.post(sub_url='warmup-rule-get')
+        return rules.json()
+
+    def set_warmup_rule(self, json_data: dict):
+        json_data['predicates'] = [] if not json_data['predicates'] else json_data['predicates']
+        return self.post(sub_url='warmup-rule-set', json_data=[json_data])
+
+    def del_warmup_rule(self, json_data: int):
+        return self.post(sub_url='warmup-rule-delete', json_data=[json_data])
 
 
 class Trino(Client):
