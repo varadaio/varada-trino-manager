@@ -1,4 +1,4 @@
-from .utils import logger
+from .infra.utils import logger
 from click import option, group
 from .commands import commands_groups
 from logging import INFO, DEBUG, StreamHandler
