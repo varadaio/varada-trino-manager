@@ -1,7 +1,7 @@
-from ..configuration import get_config
+from ..infra.configuration import get_config
 from click import group, argument, echo
-from ..rest_commands import RestCommands, PrestoRest
-from ..remote import parallel_ssh_execute, rest_execute
+from ..infra.rest_commands import RestCommands, PrestoRest
+from ..infra.remote import parallel_ssh_execute, rest_execute
 
 
 @group()

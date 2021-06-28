@@ -1,8 +1,8 @@
 from click import group, echo
-from ..connections import Trino
-from ..configuration import get_config
-from ..rest_commands import RestCommands
-from ..remote import parallel_ssh_execute, rest_execute
+from ..infra.connections import Trino
+from ..infra.configuration import get_config
+from ..infra.rest_commands import RestCommands
+from ..infra.remote import parallel_ssh_execute, rest_execute
 
 
 @group()

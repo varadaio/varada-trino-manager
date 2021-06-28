@@ -1,7 +1,7 @@
 from json import dumps
-from ..constants import Paths
+from ..infra.constants import Paths
 from click import group, echo
-from ..utils import read_file_as_json
+from ..infra.utils import read_file_as_json
 
 
 @group()

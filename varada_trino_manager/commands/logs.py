@@ -1,6 +1,6 @@
-from ..constants import Paths
+from ..infra.constants import Paths
 from click import group, option, Path as ClickPath
-from ..remote import parallel_ssh_execute, parallel_download
+from ..infra.remote import parallel_ssh_execute, parallel_download
 
 
 @group()

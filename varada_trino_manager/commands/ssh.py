@@ -1,6 +1,6 @@
 from typing import Tuple
 from click import group, argument, echo
-from ..remote import ssh_session, parallel_ssh_execute
+from ..infra.remote import ssh_session, parallel_ssh_execute
 
 
 @group()
