@@ -21,7 +21,7 @@ def apply(con: Connection, json_path: Path = None, csv_path: Path = None):
             raise exceptions.Exit(code=1)
 
         with VaradaRest(con=con) as varada_rest:
-            if rules_file:
+            if csv_path:
                 for rule in rules_file:
                     rule['priority'] = int(rule['priority'])
                     if rule['predicates']:
@@ -41,7 +41,7 @@ def apply(con: Connection, json_path: Path = None, csv_path: Path = None):
                                 rule['predicates'] = [{k: v for k, v in [pair.split(':') for pair in rule['predicates'].split(',')]}]
                     logger.info(f'Setting rule: {rule}')
                     varada_rest.set_warmup_rule(json_data=rule)
-            elif rules_file:
+            elif json_path:
                 for rule in rules_file:
                     varada_rest.set_warmup_rule(json_data=rule)
     finally:
