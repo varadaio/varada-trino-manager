@@ -58,6 +58,9 @@ def apply(json_path, csv_path):
     Apply rules to the cluster from json or csv file
     """
     con = get_config().get_connection_by_name("coordinator")
+    if not(json_path or csv_path):
+        logger.error("Either -j or -c option is required")
+        raise exceptions.Exit(code=1)
     apply_rule(con=con, json_path=json_path, csv_path=csv_path)
 
 
