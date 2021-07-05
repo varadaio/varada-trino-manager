@@ -28,13 +28,6 @@ WARM_JMX_Q = 'select sum(warm_scheduled) as warm_scheduled, ' \
              'from jmx.current.\"io.varada.presto:type=VaradaStatsWarmingService,name=warming-service.varada\"'
 
 
-def run_warmup_query(warm_query: str, presto_client: Trino):
-    # set empty query for faster warm query
-    presto_client.set_session(EMPTY_Q, 'true')
-    presto_client.execute(warm_query)
-    presto_client.reset_session(EMPTY_Q)
-
-
 def check_warmup_status(presto_client: Trino, verify_started: bool = False) -> bool:
     warm_status, _ = presto_client.execute(WARM_JMX_Q)
     # since the returned value is always one line, we'll pop it to not have to ref index each time
@@ -62,11 +55,12 @@ def run(user: str, jsonpath: Path, con: Connection):
             raise exceptions.Exit(code=1)
         raise
 
-    with VaradaRest(con=con) as varada_rest, Trino(con=con, username=user) as presto_client:
+    with VaradaRest(con=con) as varada_rest, Trino(con=con, username=user, session_properties={EMPTY_Q: 'true'}) as presto_client:
         # long warmup loop - verify warmup query
+        logger.info('Running warmup queries with varada.empty_query=true')
         for warm_q in warmup_queries:
             warmup_complete = False
-            run_warmup_query(warm_query=warm_q, presto_client=presto_client)
+            presto_client.execute(warm_q)
             sleep(3)
             while not warmup_complete:
                 while not check_warmup_status(presto_client=presto_client):
@@ -74,7 +68,7 @@ def run(user: str, jsonpath: Path, con: Connection):
                     sleep(60)
                 logger.info(f'warm_scheduled - warm_skipped eq warm_finished')
                 logger.info(f'Warmup iteration complete, verifying no additional warmup needed')
-                run_warmup_query(warm_query=warm_q, presto_client=presto_client)
+                presto_client.execute(warm_q)
                 if not check_warmup_status(presto_client=presto_client, verify_started=True):
                     logger.info(f'Additional warmup iteration in progress')
                 else:
