@@ -45,9 +45,9 @@ def check_warmup_status(presto_client: Trino, verify_started: bool = False) -> b
         == warm_status[WarmJmx.FINISHED]
 
 
-def run(user: str, jsonpath: Path, con: Connection):
+def run(user: str, jsonpath: Path, con: Connection, queries_list: list):
     try:
-        warmup_queries = read_file_as_json(jsonpath)['warm_queries']
+        warmup_queries = read_file_as_json(jsonpath)
     except Exception as e:
         if e is not FileNotFoundError:
             logger.error(f'Failed reading {jsonpath}')
@@ -55,12 +55,22 @@ def run(user: str, jsonpath: Path, con: Connection):
             raise exceptions.Exit(code=1)
         raise
 
+    if len(queries_list) > 1:
+        logger.error(f'Please list queries as comma separated, without spaces')
+        raise exceptions.Exit(code=1)
+    # queries_list coming in as list of lists, only first item relevant
+    logger.info(f'Running warm-and-validate with queries: {queries_list[0]}')
+    for qid in queries_list[0]:
+        if qid not in warmup_queries:
+            logger.error(f'Query {qid} from list is not in {warmup_queries.keys()}')
+            raise exceptions.Exit(code=1)
+
     with VaradaRest(con=con) as varada_rest, Trino(con=con, username=user, session_properties={EMPTY_Q: 'true'}) as presto_client:
         # long warmup loop - verify warmup query
         logger.info('Running warmup queries with varada.empty_query=true')
         for warm_q in warmup_queries:
             warmup_complete = False
-            presto_client.execute(warm_q)
+            presto_client.execute(warmup_queries[warm_q])
             sleep(3)
             while not warmup_complete:
                 while not check_warmup_status(presto_client=presto_client):
@@ -68,7 +78,7 @@ def run(user: str, jsonpath: Path, con: Connection):
                     sleep(60)
                 logger.info(f'warm_scheduled - warm_skipped eq warm_finished')
                 logger.info(f'Warmup iteration complete, verifying no additional warmup needed')
-                presto_client.execute(warm_q)
+                presto_client.execute(warmup_queries[warm_q])
                 if not check_warmup_status(presto_client=presto_client, verify_started=True):
                     logger.info(f'Additional warmup iteration in progress')
                 else:

@@ -86,10 +86,10 @@ def runner(
     Run queries on Varada Cluster, per the following examples:
 
     \b
-        vtm -vvvv query runner -j <queries.json> q1                 => Run q1 a single time, where q1 is the key in queries.json
-        vtm -vvvv query runner -j <queries.json> -i 3 q2,q3         => Run q2,q3 serially, iterate 3 times
-        vtm -vvvv query runner -j <queries.json> q1,q2,q3 q4,q5     => Run q1,q2,q3 serially, run in parallel q4,q5
-        vtm -vvvv query runner -j <queries.json> -c 6 -r            => Run randomly selected queries to run with concurrency 6
+        vtm -v query runner -j <queries.json> q1                 => Run q1 a single time, where q1 is the key in queries.json
+        vtm -v query runner -j <queries.json> -i 3 q2,q3         => Run q2,q3 serially, iterate 3 times
+        vtm -v query runner -j <queries.json> q1,q2,q3 q4,q5     => Run q1,q2,q3 serially, run in parallel q4,q5
+        vtm -v query runner -j <queries.json> -c 6 -r            => Run randomly selected queries to run with concurrency 6
     \b
     """
     con = get_config().get_connection_by_name("coordinator")
