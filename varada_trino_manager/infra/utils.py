@@ -26,9 +26,10 @@ def init_logger() -> Logger:
     config_path = join(dirname(abspath(__file__)), "logging.json")
     with open(config_path) as f:
         logger_config = load(f)
-    logger_config["handlers"]["file"]["filename"] = f'{Paths.logs_path}/vtm.log'
+    Paths.logs_path.mkdir(parents=True, exist_ok=True)
+    logger_config["handlers"]["file"]["filename"] = f"{Paths.logs_path}/vtm.log"
     dictConfig(logger_config)
-    return getLogger('vtm')
+    return getLogger("vtm")
 
 
 logger = init_logger()
