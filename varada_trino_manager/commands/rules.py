@@ -1,7 +1,7 @@
 from ..infra.utils import logger
 from ..infra.configuration import get_config
 from ..infra.warm_validate import run as warm_validate
-from click import group, option, Path as ClickPath, exceptions
+from click import group, option, Path as ClickPath, exceptions, argument
 from ..infra.rules import apply as apply_rule, get as get_rule, delete as delete_rule
 
 
@@ -139,20 +139,27 @@ def delete(rule_ids, all_rules):
     required=True,
     help="""Location of JSON with list of queries.
 JSON format as per the below example:
+
 \b
 {
-"warm_queries": [
-  "select count(<col1>), count(<col2>),... count(<colN>) from varada.<SCHEMA>.<TABLE>"
-]
-  }
+    "Query1": "select count(col53), count(col79) from varada.<SCHEMA>.<TABLE> where col13 = 'this'",
+    "Query2": "select col40 from varada.<SCHEMA>.<TABLE>",
+    "Query3": "select max(col45), col63 from varada.<SCHEMA>.<TABLE> where col95 < 189"
+}
 \b
+
 i.e. list of warm_queries where col1, col2,... colN are columns which have warmup rules applied
 """,
 )
+@argument("queries_list", nargs=-1)
 @rules.command()
-def warm_and_validate(user, jsonpath):
+def warm_and_validate(user, jsonpath, queries_list):
     """
-    Warmup Varada per rules applied
+    Warmup Varada per rules applied, using selected queries from json, example:
+
+    \b
+        vtm -v rules warm-and-validate -j <queries.json> q1,q2,q3     => Warmup by running q1,q2,q3
+    \b
     """
     con = get_config().get_connection_by_name("coordinator")
-    warm_validate(user=user, jsonpath=jsonpath, con=con)
+    warm_validate(user=user, jsonpath=jsonpath, con=con, queries_list=[queries.split(",") for queries in queries_list])
