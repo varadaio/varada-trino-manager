@@ -3,6 +3,7 @@ from ..infra.connections import Trino
 from ..infra.configuration import get_config
 from ..infra.rest_commands import RestCommands
 from ..infra.remote import parallel_ssh_execute, rest_execute
+from ..infra.options import add_options, TARGET_MAP, NODES_OPTIONS
 
 
 @group()
@@ -13,28 +14,31 @@ def server():
     pass
 
 
+@add_options(NODES_OPTIONS)
 @server.command()
-def stop():
+def stop(target: str):
     """
     Start presto service
     """
-    parallel_ssh_execute(command="sudo systemctl stop presto")
+    run_func(command="sudo systemctl restart presto", target=target)
 
 
+@add_options(NODES_OPTIONS)
 @server.command()
-def start():
+def start(target: str):
     """
     Start presto service
     """
-    parallel_ssh_execute(command="sudo systemctl start presto")
+    run_func(command="sudo systemctl restart presto", target=target)
 
 
+@add_options(NODES_OPTIONS)
 @server.command()
-def restart():
+def restart(target: str):
     """
     Restart presto service
     """
-    parallel_ssh_execute(command="sudo systemctl restart presto")
+    run_func(command="sudo systemctl restart presto", target=target)
 
 
 @server.command()
@@ -49,3 +53,8 @@ def status():
         echo("Not all nodes are connected")
     else:
         echo("All nodes are connected")
+
+
+def run_func(command: str, target: str):
+    coordinator, workers = TARGET_MAP[target]
+    parallel_ssh_execute(command=command, coordinator=coordinator, workers=workers)

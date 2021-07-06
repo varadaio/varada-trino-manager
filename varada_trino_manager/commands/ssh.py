@@ -1,6 +1,7 @@
 from typing import Tuple
 from click import group, argument, echo
 from ..infra.remote import ssh_session, parallel_ssh_execute
+from ..infra.options import add_options, TARGET_MAP, NODES_OPTIONS
 
 
 @group()
@@ -22,11 +23,14 @@ def connect(node):
     ssh_session(node=node)
 
 
+
 @argument("command", nargs=-1)
+@add_options(NODES_OPTIONS)
 @ssh.command()
-def command(command: Tuple[str]):
+def command(target: str, command: Tuple[str]):
     """
     Send command via SSH to all nodes
     """
-    for task, hostname in parallel_ssh_execute(" ".join(command)):
+    coordinator, workers = TARGET_MAP[target]
+    for task, hostname in parallel_ssh_execute(" ".join(command), coordinator=coordinator, workers=workers):
         echo(f"{hostname}: {task.result()}")
