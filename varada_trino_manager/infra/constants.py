@@ -1,4 +1,5 @@
 from os import environ
+from pathlib import Path
 from dataclasses import dataclass
 from os.path import expanduser, join as path_join
 
@@ -9,10 +10,10 @@ class InvalidNodeError(Exception):
 
 @dataclass
 class Paths:
-    config_dir: str = environ.get("VARADA_TRINO_MANAGER_DIR", expanduser("~/.vtm"))
+    config_dir: Path = Path(environ.get("VARADA_TRINO_MANAGER_DIR", expanduser("~/.vtm")))
     config_file_name: str = "config.json"
-    config_path: str = path_join(config_dir, config_file_name)
-    logs_path: str = path_join(config_dir, "logs")
+    config_path: Path = config_dir / config_file_name
+    logs_path: Path = config_dir / "logs"
 
 
 class Common:
