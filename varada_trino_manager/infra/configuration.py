@@ -68,11 +68,8 @@ class Configuration(BaseModel):
     def number_of_nodes(self) -> int:
         return len(self.workers) + 1
 
-    def iter_connections(
-        self,
-    ) -> Connection:
-        role = "coordinator"
-        for node in [self.coordinator] + self.workers:
+    def iter_workers_connections(self):
+        for node in self.workers:
             yield Connection(
                 hostname=node,
                 port=self.port,
@@ -80,9 +77,24 @@ class Configuration(BaseModel):
                 bastion_port=self.bastion.port,
                 bastion_hostname=self.bastion.hostname,
                 bastion_username=self.bastion.username,
-                role=role,
+                role="worker",
             )
-            role = "worker"
+
+    @property
+    def coordinator_connection(self):
+        return Connection(
+            hostname=self.coordinator,
+            port=self.port,
+            username=self.username,
+            bastion_port=self.bastion.port,
+            bastion_hostname=self.bastion.hostname,
+            bastion_username=self.bastion.username,
+            role="coordinator",
+        )
+
+    def iter_connections(self) -> Connection:
+        yield self.coordinator_connection
+        yield from self.iter_workers_connections()
 
     def get_connection_by_name(self, node: str) -> Connection:
         if node == "coordinator":

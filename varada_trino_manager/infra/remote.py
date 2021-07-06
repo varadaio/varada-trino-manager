@@ -51,15 +51,21 @@ def upload(con: Connection, local_file_path: str, remote_file_path: str) -> None
         logger.error(format_exc())
 
 
-def parallel_ssh_execute(command: str) -> List[Tuple[Future, str]]:
+def parallel_ssh_execute(command: str, coordinator: bool = False, workers: bool = False) -> List[Tuple[Future, str]]:
     config = get_config()
+    if coordinator:
+        connections = [config.coordinator_connection]
+    elif workers:
+        connections = config.iter_workers_connections()
+    else:
+        connections = config.iter_connections()
     with ThreadPoolExecutor(max_workers=config.number_of_nodes) as tpx:
         tasks = [
             (
                 tpx.submit(ssh_execute, con=connection, command=command),
                 connection.hostname,
             )
-            for connection in config.iter_connections()
+            for connection in connections
         ]
     return tasks
 
