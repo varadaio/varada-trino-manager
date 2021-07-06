@@ -1,4 +1,3 @@
-from click import echo
 from typing import Union
 from .utils import logger
 from .constants import Common
@@ -41,6 +40,7 @@ def download(con: Connection, remote_file_path: str, local_file_path: str) -> No
             return client.get(remote_file_path=remote_file_path, local_file_path=local_file_path)
     except Exception:
         logger.error(format_exc())
+
 
 def upload(con: Connection, local_file_path: str, remote_file_path: str) -> None:
     logger.debug(f"Copying {con}{local_file_path} {remote_file_path}")

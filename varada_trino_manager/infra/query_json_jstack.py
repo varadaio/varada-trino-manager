@@ -10,13 +10,6 @@ from .rest_commands import RestCommands
 from .remote import parallel_ssh_execute, parallel_download
 
 
-def run_query(query: str, client: Trino) -> dict:
-    _, stats = client.execute(query=query)
-    logger.info(f'Query: {query} QueryId: {stats["queryId"]} '
-                f'Query execution time: {round(stats["elapsedTimeMillis"]*0.001, 3)} Seconds')
-    return {"queryId": stats["queryId"], "elapsedTime": round(stats["elapsedTimeMillis"]*0.001, 3)}
-
-
 def collect_jstack(wait: int, keep_running: Event):
     collect_commands = [
         "echo '#######################################    NEW JSTACK CAPTURE   #######################################' | sudo tee -a /tmp/jstacks/jstack.txt",

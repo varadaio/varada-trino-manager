@@ -18,13 +18,13 @@ def run_queries(serial_queries: dict, client: Trino, workload: int = 1, return_r
     for query in serial_queries:
         q_res, q_stats = client.execute(query=serial_queries[query])
         q_series_results[query] = {"queryName": query, "queryId": q_stats["queryId"],
-                                   "elapsedTime": round(q_stats["elapsedTimeMillis"]*0.001, 3),
-                                   "cpuTime": round(q_stats["cpuTimeMillis"]*0.001, 3),
+                                   "elapsedTime": round(q_stats["elapsedTimeMillis"] * 0.001, 3),
+                                   "cpuTime": round(q_stats["cpuTimeMillis"] * 0.001, 3),
                                    "processedRows": q_stats["processedRows"],
                                    "processedBytes": q_stats["processedBytes"],
                                    "totalSplits": q_stats["totalSplits"]}
         logger.info(f'Query: {query} QueryId: {q_stats["queryId"]} '
-                    f'Single query execution time: {round(q_stats["elapsedTimeMillis"]*0.001, 3)} Seconds')
+                    f'Single query execution time: {round(q_stats["elapsedTimeMillis"] * 0.001, 3)} Seconds')
     return q_series_results, workload, q_res if return_res else None
 
 
@@ -74,7 +74,7 @@ def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: i
                             futures.append(executor.submit(run_queries,
                                                            serial_queries,
                                                            client,
-                                                           queries_list.index(series)+1,
+                                                           queries_list.index(series) + 1,
                                                            get_results))
 
             queries_done = 0
