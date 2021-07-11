@@ -1,6 +1,8 @@
 from ..infra.constants import Paths
-from click import group, option, Path as ClickPath
-from ..infra.remote import parallel_ssh_execute, parallel_download
+from ..infra.connections import VaradaRest
+from ..infra.rest_commands import RestCommands
+from click import group, option, Path as ClickPath, argument
+from ..infra.remote import parallel_ssh_execute, parallel_download, parallel_rest_execute
 
 
 @group()
@@ -9,6 +11,17 @@ def logs():
     Logs related commands
     """
     pass
+
+
+@argument("msg", nargs=-1)
+@logs.command()
+def send(msg):
+    """
+    Write to nodes logs
+    """
+    # concat tuple arg into one string
+    send_msg = " ".join(msg)
+    parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg=send_msg)
 
 
 @logs.command()

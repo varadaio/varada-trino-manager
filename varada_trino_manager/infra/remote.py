@@ -6,15 +6,28 @@ from typing import List, Tuple
 from os import execv, makedirs
 from traceback import format_exc
 from subprocess import check_output
-from .connections import SSH, SFTP, Rest, Trino
 from .configuration import get_config, Connection
 from os.path import basename, dirname, join as path_join
 from concurrent.futures import ThreadPoolExecutor, Future
+from .connections import SSH, SFTP, Rest, Trino, VaradaRest
 
 
 def rest_execute(con: Connection, rest_client_type: Union[Rest, Trino], func, *args, **kw):
     with rest_client_type(con) as client:
         return func(client, *args, **kw)
+
+
+def parallel_rest_execute(rest_client_type: Union[Rest, Trino, VaradaRest], func, *args, **kw):
+    config = get_config()
+    with ThreadPoolExecutor(max_workers=config.number_of_nodes) as tpx:
+        tasks = [
+            (
+                tpx.submit(rest_execute, con=connection, rest_client_type=rest_client_type, func=func, *args, **kw),
+                connection.hostname,
+            )
+            for connection in config.iter_connections()
+        ]
+    return tasks
 
 
 def ssh_execute(command: str, con: Connection) -> str:

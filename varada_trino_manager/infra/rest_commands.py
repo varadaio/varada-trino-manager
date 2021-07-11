@@ -1,6 +1,6 @@
 from json import dump
 from .configuration import Connection
-from .connections import Rest, Trino, PrestoRest
+from .connections import Rest, Trino, PrestoRest, VaradaRest
 
 
 def return_single_value(func):
@@ -28,3 +28,8 @@ class RestCommands:
         with PrestoRest(con=con) as trino_rest, open(f'{dest_dir}/{query_id}.json', 'w') as fd:
             data = trino_rest.query_json(query_id=query_id).json()
             dump(data, fd, indent=2)
+
+
+    @staticmethod
+    def dev_log(client: VaradaRest, msg: str):
+        client.log(msg=msg)
