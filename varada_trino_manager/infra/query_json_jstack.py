@@ -3,11 +3,11 @@ from time import sleep
 from pathlib import Path
 from .utils import logger
 from click import exceptions
-from .connections import Trino
+from .connections import Trino, VaradaRest
 from threading import Thread, Event
 from .configuration import Connection
 from .rest_commands import RestCommands
-from .remote import parallel_ssh_execute, parallel_download
+from .remote import parallel_ssh_execute, parallel_download, parallel_rest_execute
 
 
 def run_query(query: str, client: Trino) -> dict:
@@ -50,6 +50,7 @@ def run(user: str, con: Connection, jsonpath: Path, query: str, jstack_wait: int
     with Trino(con=con, username=user, session_properties=session_properties) as trino_client:
         # Start collecting jstack as Thread, then run query; once query has completed - stop collection
         logger.info(f"Start collecting jstacks, interval of {jstack_wait}Sec")
+        parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Query JSON JStack: Start Jstack Collection")
         keep_collecting_jstack = Event()
         keep_collecting_jstack.set()
         collect = Thread(target=collect_jstack, args=(jstack_wait, keep_collecting_jstack))
@@ -57,9 +58,11 @@ def run(user: str, con: Connection, jsonpath: Path, query: str, jstack_wait: int
         if session_properties:
             logger.info(f'Running query with session properties: {session_properties}')
         logger.info(f'Running query {query}')
+        parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg=f"VTM Query JSON JStack: Run Query: {query}")
         _, stats = trino_client.execute(query=queries[query])
 
         logger.info("Query completed, stopping jstacks collection")
+        parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Query JSON JStack: Stop Jstack Collection")
         keep_collecting_jstack.clear()
         collect.join()
 

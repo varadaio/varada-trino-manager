@@ -180,6 +180,9 @@ class VaradaRest(Rest):
     def del_warmup_rule(self, json_data: int):
         return self.post(sub_url='warmup-rule-delete', json_data=[json_data])
 
+    def log(self, msg: str) -> None:
+        self.post(sub_url='debug-log', json_data={'logLine': msg})
+
 
 class Trino(Client):
 

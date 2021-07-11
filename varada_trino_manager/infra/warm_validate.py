@@ -6,7 +6,9 @@ from traceback import format_exc
 from click import exceptions, echo
 from .utils import read_file_as_json
 from .configuration import Connection
+from .remote import parallel_rest_execute
 from .connections import VaradaRest, Trino
+from ..infra.rest_commands import RestCommands
 
 
 class WarmJmx:
@@ -67,9 +69,11 @@ def run(user: str, jsonpath: Path, con: Connection, queries_list: list):
 
     with VaradaRest(con=con) as varada_rest, Trino(con=con, username=user, session_properties={EMPTY_Q: 'true'}) as presto_client:
         # long warmup loop - verify warmup query
+        parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Warm And Validate: Start")
         logger.info('Running warmup queries with varada.empty_query=true')
         for warm_q in warmup_queries:
             warmup_complete = False
+            parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg=f"VTM Warm And Validate: Running query: {warm_q}")
             presto_client.execute(warmup_queries[warm_q])
             sleep(3)
             while not warmup_complete:
@@ -91,5 +95,5 @@ def run(user: str, jsonpath: Path, con: Connection, queries_list: list):
             except Exception:
                 logger.error(f'Failed rest call to row_group_count')
                 logger.error(format_exc())
-
+        parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Warm And Validate: End")
         logger.info(f'Warmup complete')

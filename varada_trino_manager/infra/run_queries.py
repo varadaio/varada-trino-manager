@@ -4,10 +4,12 @@ from typing import Tuple
 from random import choice
 from .utils import logger
 from json import load, dumps
-from .connections import Trino
 from click import exceptions, echo
 from collections import defaultdict
 from .configuration import Connection
+from .remote import parallel_rest_execute
+from .connections import Trino, VaradaRest
+from ..infra.rest_commands import RestCommands
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 overall_res = defaultdict(lambda: defaultdict(dict))
@@ -16,6 +18,7 @@ overall_res = defaultdict(lambda: defaultdict(dict))
 def run_queries(serial_queries: dict, client: Trino, workload: int = 1, return_res: bool = False) -> Tuple[dict, int, list]:
     q_series_results = {}
     for query in serial_queries:
+        parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg=f"VTM Run Query: {query}")
         q_res, q_stats = client.execute(query=serial_queries[query])
         q_series_results[query] = {"queryName": query, "queryId": q_stats["queryId"],
                                    "elapsedTime": round(q_stats["elapsedTimeMillis"]*0.001, 3),
@@ -51,8 +54,10 @@ def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: i
             logger.info(f'Series {queries_list.index(parallel_queries)}: {parallel_queries}')
 
     with Trino(con=con, username=user, session_properties=session_properties) as client:
+        parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Query Runner Start")
         for iteration in range(iterations):
             logger.info(f"Running: Iteration {iteration+1}")
+            parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg=f"VTM Query Runner Iteration {iteration+1}")
             futures = []
             with ProcessPoolExecutor(max_workers=len(queries_list) if queries_list else concurrency) as executor:
                 if random:
@@ -95,4 +100,5 @@ def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: i
             if sleep_time and iteration < iterations:
                 logger.info(f'Sleeping {sleep_time} seconds before next run')
                 sleep(sleep_time)
+        parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Query Runner End")
         logger.info(f'Overall run results: {dumps(overall_res, indent=2)}')
