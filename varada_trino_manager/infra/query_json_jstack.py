@@ -3,14 +3,14 @@ from time import sleep
 from pathlib import Path
 from .utils import logger
 from click import exceptions
-from .connections import Trino, VaradaRest
 from threading import Thread, Event
 from .configuration import Connection
 from .rest_commands import RestCommands
+from .connections import APIClient, VaradaRest
 from .remote import parallel_ssh_execute, parallel_download, parallel_rest_execute
 
 
-def run_query(query: str, client: Trino) -> dict:
+def run_query(query: str, client: APIClient) -> dict:
     _, stats = client.execute(query=query)
     logger.info(f'Query: {query} QueryId: {stats["queryId"]} '
                 f'Query execution time: {round(stats["elapsedTimeMillis"]*0.001, 3)} Seconds')
@@ -47,7 +47,7 @@ def run(user: str, con: Connection, jsonpath: Path, query: str, jstack_wait: int
     ]
     parallel_ssh_execute(command="\n".join(dir_commands))
 
-    with Trino(con=con, username=user, session_properties=session_properties) as trino_client:
+    with APIClient(con=con, username=user, session_properties=session_properties) as trino_client:
         # Start collecting jstack as Thread, then run query; once query has completed - stop collection
         logger.info(f"Start collecting jstacks, interval of {jstack_wait}Sec")
         parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Query JSON JStack: Start Jstack Collection")

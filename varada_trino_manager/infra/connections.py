@@ -4,14 +4,15 @@ from getpass import getuser
 from typing import Tuple, Union
 from dataclasses import dataclass
 from os.path import exists, dirname
-from .configuration import Connection
 from abc import ABCMeta, abstractmethod
 from sshtunnel import SSHTunnelForwarder
 from paramiko.transport import Transport
 from paramiko.sftp_client import SFTPClient
 from paramiko import AutoAddPolicy, SSHClient
+from .configuration import Connection, BrandEnum
 from trino.dbapi import Connection as TrinoConnection
 from requests import Session, Response, codes, exceptions
+from prestodb.dbapi import Connection as PrestoConnection
 
 
 class Client(metaclass=ABCMeta):
@@ -37,7 +38,7 @@ class Client(metaclass=ABCMeta):
                     self.__con.bastion_port,
                 ),
                 ssh_username=self.__con.bastion_username,
-                remote_bind_address=(self.__con.hostname, self.PORT),
+                remote_bind_address=(self.__con.hostname, self.port),
                 allow_agent=True,
             )
             self.__tuneel.start()
@@ -58,6 +59,9 @@ class Client(metaclass=ABCMeta):
     def close(self):
         pass
 
+    @property
+    def connection(self) -> Connection:
+        return self.__con
 
 class SSH(Client):
     PORT = 22
@@ -120,8 +124,8 @@ def handle_response(func):
 
 
 class Rest(Client):
-    def __init__(self, con: Connection, http_schema: str = Schemas.HTTP):
-        super(Rest, self).__init__(con=con, port=self.PORT)
+    def __init__(self, con: Connection, http_schema: str = Schemas.HTTP, port: int = None):
+        super(Rest, self).__init__(con=con, port=port)
         self.__http_schema = http_schema
 
     def connect(self):
@@ -148,19 +152,39 @@ class Rest(Client):
         return self.__client.post(url=url, json=json_data, headers=headers)
 
 
-class PrestoRest(Rest):
-    PORT = 8080
+class ExtendedRest(Rest):
+    
+
+    brand_to_header_key = {
+        BrandEnum.presto: 'X-Presto-User',
+        BrandEnum.trino: 'X-Trino-User'
+    }
+
+    def __init__(self, con: Connection, http_schema, port: int = None):
+        super().__init__(con, http_schema=http_schema, port=port or con.distribution.port)
+        self.__brand = con.distribution.brand
+
+    @property
+    def headers(self) -> dict:
+        header_key = self.brand_to_header_key.get(self.__brand)
+        if header_key is None:
+            raise ValueError(f'Invalid brand: {self.__brand}')
+        return {header_key: 'varada'}
 
     @property
     def url(self) -> str:
-        return f"{super(PrestoRest, self).url}/v1"
+        return f"{super(ExtendedRest, self).url}/v1"
 
     def query_json(self, query_id: str):
-        return self.get(sub_url=f'query/{query_id}?pretty', headers={'X-Trino-User': 'varada'})
+        return self.get(sub_url=f'query/{query_id}?pretty', headers=self.headers)
 
 
 class VaradaRest(Rest):
+    
     PORT = 8088
+
+    def __init__(self, con: Connection, http_schema: str):
+        super().__init__(con, http_schema=http_schema, port=self.PORT)
 
     @property
     def url(self) -> str:
@@ -184,20 +208,26 @@ class VaradaRest(Rest):
         self.post(sub_url='debug-log', json_data={'logLine': msg})
 
 
-class Trino(Client):
+class APIClient(Client):
 
-    PORT = 8080
+    distribution_to_class = {
+        BrandEnum.trino: TrinoConnection,
+        BrandEnum.presto: PrestoConnection
+    }
 
     def __init__(
-        self, con: Connection, username: str = None, http_schema: str = Schemas.HTTP, session_properties: dict = None
+        self, con: Connection, username: str = None, http_schema: str = Schemas.HTTP, session_properties: dict = None,
     ):
-        super(Trino, self).__init__(con=con, port=self.PORT)
+        super(APIClient, self).__init__(con=con, port=con.distribution.port)
         self.__username = getuser() if username is None else username
         self.__http_schema = http_schema
         self.__session_properties = session_properties
 
     def connect(self):
-        self.__client = TrinoConnection(
+        cls = self.distribution_to_class.get(self.connection.distribution.brand)
+        if cls is None:
+            raise ValueError(f'Invalid distribution: {self.connection.distribution.brand}')
+        self.__client = cls(
             host=self.host,
             port=self.port,
             user=self.__username,

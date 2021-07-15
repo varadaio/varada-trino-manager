@@ -31,6 +31,7 @@ setup(
         "sshtunnel==0.4.0",
         "pydantic==1.8.1",
         "trino==0.305.0",
+        "presto-python-client==0.7.0"
     ],
     extras_require={
         "dev": [

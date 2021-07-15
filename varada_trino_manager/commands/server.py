@@ -1,5 +1,5 @@
 from click import group, echo
-from ..infra.connections import Trino
+from ..infra.connections import APIClient
 from ..infra.configuration import get_config
 from ..infra.rest_commands import RestCommands
 from ..infra.remote import parallel_ssh_execute, rest_execute
@@ -48,7 +48,7 @@ def status():
     """
     con = get_config().get_connection_by_name("coordinator")
     if not rest_execute(
-        con=con, rest_client_type=Trino, func=RestCommands.is_all_nodes_connected
+        con=con, rest_client_type=APIClient, func=RestCommands.is_all_nodes_connected
     ):
         echo("Not all nodes are connected")
     else:
