@@ -1,9 +1,25 @@
 from __future__ import annotations
+from enum import Enum
 from click import exceptions
 from typing import List, Union
 from .utils import read_file_as_json, logger
-from .constants import Paths, InvalidNodeError
+from .constants import Paths, InvalidNodeError, Common
 from pydantic import BaseModel, StrictStr, StrictInt, error_wrappers
+
+
+class BrandEnum(str, Enum):
+    presto = 'presto'
+    trino = 'trino'
+
+
+class RoleEnum(str, Enum):
+    coordinator = 'coordinator'
+    worker = 'worker'
+
+
+class DistributionConfiguration(BaseModel):
+    brand: Union[BrandEnum, None]
+    port: Union[StrictInt, None]
 
 
 class Connection(BaseModel):
@@ -13,7 +29,8 @@ class Connection(BaseModel):
     bastion_hostname: Union[StrictStr, None]
     bastion_port: Union[StrictInt, None]
     bastion_username: Union[StrictStr, None]
-    role: StrictStr
+    role: RoleEnum
+    distribution: DistributionConfiguration
 
     @property
     def with_bastion(self) -> bool:
@@ -21,14 +38,16 @@ class Connection(BaseModel):
 
     def __repr__(self) -> str:
         bastion_connection_string = (
-            f"{self.bastion_username}@{self.bastion_hostname}:{self.bastion_port} -->"
+            f"{self.bastion_username}@{self.bastion_hostname}:{self.bastion_port} --> "
             if bool(
                 self.bastion_hostname and self.bastion_port and self.bastion_username
             )
             else ""
         )
-        return f"<{self.role}> {bastion_connection_string} {self.username}@{self.hostname}:{self.port}"
+        return f"<{self.role}> {bastion_connection_string}{self.username}@{self.hostname}:{self.port}"
 
+    def __str__(self) -> str:
+        return repr(self)
 
 class BastionConfiguration(BaseModel):
     hostname: Union[StrictStr, None]
@@ -42,16 +61,22 @@ class Configuration(BaseModel):
     username: StrictStr
     port: StrictInt
     bastion: BastionConfiguration
+    distribution: DistributionConfiguration
 
     @classmethod
     def from_json(cls, file_path: str) -> Configuration:
         data = read_file_as_json(file_path=file_path)
         bastion_data = data.get("bastion", dict())
+        distribution_data = data.get('distribution', dict())
         try:
             bastion = BastionConfiguration(
                 hostname=bastion_data.get("hostname"),
                 port=bastion_data.get("port"),
                 username=bastion_data.get("username"),
+            )
+            distribution = DistributionConfiguration(
+                brand=distribution_data.get('brand', BrandEnum.trino),
+                port=distribution_data.get('port', Common.API_PORT)
             )
             return cls(
                 coordinator=data.get("coordinator"),
@@ -59,6 +84,7 @@ class Configuration(BaseModel):
                 username=data.get("username"),
                 port=data.get("port"),
                 bastion=bastion,
+                distribution=distribution
             )
         except error_wrappers.ValidationError as e:
             logger.error(f"Configuration is malformed: {e}")
@@ -77,7 +103,8 @@ class Configuration(BaseModel):
                 bastion_port=self.bastion.port,
                 bastion_hostname=self.bastion.hostname,
                 bastion_username=self.bastion.username,
-                role="worker",
+                role=RoleEnum.worker,
+                distribution=self.distribution
             )
 
     @property
@@ -89,7 +116,8 @@ class Configuration(BaseModel):
             bastion_port=self.bastion.port,
             bastion_hostname=self.bastion.hostname,
             bastion_username=self.bastion.username,
-            role="coordinator",
+            role=RoleEnum.coordinator,
+            distribution=self.distribution
         )
 
     def iter_connections(self) -> Connection:
@@ -98,10 +126,11 @@ class Configuration(BaseModel):
 
     def get_connection_by_name(self, node: str) -> Connection:
         if node == "coordinator":
-            role = node
+            role = RoleEnum.coordinator
             hostname = self.coordinator
         elif node.startswith("node-"):
-            role, position = node.split("-")
+            role = RoleEnum.worker
+            _, position = node.split("-")
             if position.isdigit():
                 position = int(position)
             else:
@@ -121,6 +150,7 @@ class Configuration(BaseModel):
             bastion_hostname=self.bastion.hostname,
             bastion_username=self.bastion.username,
             role=role,
+            distribution=self.distribution,
         )
 
 

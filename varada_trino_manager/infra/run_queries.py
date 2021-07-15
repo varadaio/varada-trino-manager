@@ -4,18 +4,19 @@ from typing import Tuple
 from random import choice
 from .utils import logger
 from json import load, dumps
+from .connections import APIClient
 from click import exceptions, echo
 from collections import defaultdict
+from .connections import VaradaRest
 from .configuration import Connection
 from .remote import parallel_rest_execute
-from .connections import Trino, VaradaRest
 from ..infra.rest_commands import RestCommands
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 overall_res = defaultdict(lambda: defaultdict(dict))
 
 
-def run_queries(serial_queries: dict, client: Trino, workload: int = 1, return_res: bool = False) -> Tuple[dict, int, list]:
+def run_queries(serial_queries: dict, client: APIClient, workload: int = 1, return_res: bool = False) -> Tuple[dict, int, list]:
     q_series_results = {}
     for query in serial_queries:
         parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg=f"VTM Run Query: {query}")
@@ -53,7 +54,7 @@ def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: i
                     raise exceptions.Exit(code=1)
             logger.info(f'Series {queries_list.index(parallel_queries)}: {parallel_queries}')
 
-    with Trino(con=con, username=user, session_properties=session_properties) as client:
+    with APIClient(con=con, username=user, session_properties=session_properties) as client:
         parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Query Runner Start")
         for iteration in range(iterations):
             logger.info(f"Running: Iteration {iteration+1}")

@@ -1,10 +1,9 @@
-from time import sleep
 from pathlib import Path
-from csv import DictReader
 from .utils import logger
+from csv import DictReader
+from click import exceptions
 from json import dumps, load, dump
 from .connections import VaradaRest
-from click import exceptions
 from .configuration import Connection
 
 

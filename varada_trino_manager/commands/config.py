@@ -1,6 +1,6 @@
 from json import dumps
-from ..infra.constants import Paths
 from click import group, echo
+from ..infra.constants import Paths
 from ..infra.utils import read_file_as_json
 
 
@@ -38,9 +38,14 @@ def template():
     }
     echo(f"Simple:\n{dumps(data, indent=2)}")
     echo("")  # new line
-    data["bastion"] = {
-        "hostname": "bastion.example.com",
-        "port": 22,
-        "username": "root",
-    }
-    echo(f"With bastion:\n{dumps(data, indent=2)}")
+    data.update(
+        {
+            "bastion": {
+                "hostname": "bastion.example.com",
+                "port": 22,
+                "username": "root",
+            },
+            "distribution": {"brand": "trino", "port": 8080},
+        }
+    )
+    echo(f"With bastion and distribution:\n{dumps(data, indent=2)}")

@@ -74,7 +74,7 @@ Simple:
   "username": "root"
 }
 
-With bastion:
+With bastion and distribution:
 {
   "coordinator": "coordinator.example.com",
   "workers": [
@@ -88,6 +88,12 @@ With bastion:
     "hostname": "bastion.example.com",
     "port": 22,
     "username": "root"
+  },
+  "distribution": {
+    "brand": "trino",
+    "port": 8080
   }
 }
+
+brand can be either trino or presto
 ```

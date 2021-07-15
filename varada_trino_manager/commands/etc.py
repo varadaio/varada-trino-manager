@@ -1,6 +1,6 @@
-from ..infra.configuration import get_config
 from click import group, argument, echo
-from ..infra.rest_commands import RestCommands, PrestoRest
+from ..infra.configuration import get_config
+from ..infra.rest_commands import RestCommands, ExtendedRest
 from ..infra.remote import parallel_ssh_execute, rest_execute
 
 
@@ -21,7 +21,7 @@ def info(node):
     default: coordinator
     """
     con = get_config().get_connection_by_name(node)
-    echo(rest_execute(con=con, rest_client_type=PrestoRest, func=RestCommands.info))
+    echo(rest_execute(con=con, rest_client_type=ExtendedRest, func=RestCommands.info))
 
 
 @etc.command()
