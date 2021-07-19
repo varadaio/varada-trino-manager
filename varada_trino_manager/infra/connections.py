@@ -160,7 +160,7 @@ class ExtendedRest(Rest):
         BrandEnum.trino: 'X-Trino-User'
     }
 
-    def __init__(self, con: Connection, http_schema, port: int = None):
+    def __init__(self, con: Connection, http_schema: str = Schemas.HTTP, port: int = None):
         super().__init__(con, http_schema=http_schema, port=port or con.distribution.port)
         self.__brand = con.distribution.brand
 

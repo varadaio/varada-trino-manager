@@ -7,13 +7,12 @@ from os import execv, makedirs
 from traceback import format_exc
 from subprocess import check_output
 from .configuration import get_config, Connection
-from .connections import SSH, SFTP, Rest, VaradaRest
 from os.path import basename, dirname, join as path_join
 from concurrent.futures import ThreadPoolExecutor, Future
-from .connections import SSH, SFTP, Rest, APIClient, VaradaRest
+from .connections import SSH, SFTP, Rest, APIClient, VaradaRest, ExtendedRest
 
 
-def rest_execute(con: Connection, rest_client_type: Union[Rest, APIClient], func, *args, **kw):
+def rest_execute(con: Connection, rest_client_type: Union[Rest, APIClient, ExtendedRest], func, *args, **kw):
     with rest_client_type(con) as client:
         return func(client, *args, **kw)
 
