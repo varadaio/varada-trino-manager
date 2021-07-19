@@ -183,7 +183,7 @@ class VaradaRest(Rest):
     
     PORT = 8088
 
-    def __init__(self, con: Connection, http_schema: str):
+    def __init__(self, con: Connection, http_schema: str = Schemas.HTTP):
         super().__init__(con, http_schema=http_schema, port=self.PORT)
 
     @property
