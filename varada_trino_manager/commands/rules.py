@@ -65,11 +65,18 @@ def apply(json_path, csv_path):
 
 
 @option(
+    "-s",
+    "--schema",
+    type=str,
+    required=False,
+    help="Delete user rules associated with schema.table: vtm -v rules delete -s SCHEMA -t TABLE",
+)
+@option(
     "-t",
     "--table",
     type=str,
     required=False,
-    help="Get user rules associated with table",
+    help="Delete user rules associated with schema.table: vtm -v rules delete -s SCHEMA -t TABLE",
 )
 @option(
     "-c",
@@ -85,12 +92,12 @@ def apply(json_path, csv_path):
     help="Save rules to destination dir as json file",
 )
 @rules.command()
-def get(table, column, destination_dir):
+def get(schema, table, column, destination_dir):
     """
     Get rules from the Varada cluster, by default retrieve all
     """
     con = get_config().get_connection_by_name("coordinator")
-    get_rule(con=con, table=table, column=column, destination_dir=destination_dir)
+    get_rule(con=con, schema=schema, table=table, column=column, destination_dir=destination_dir)
 
 
 @option(
@@ -107,22 +114,48 @@ def get(table, column, destination_dir):
     default=None,
     help="ID of rule to be deleted, if multiple - comma separated. Example: vtm -v rules delete -i 1106600307,1830309151",
 )
+@option(
+    "-s",
+    "--schema",
+    type=str,
+    required=False,
+    help="Delete user rules associated with schema.table: vtm -v rules delete -s SCHEMA -t TABLE",
+)
+@option(
+    "-t",
+    "--table",
+    type=str,
+    required=False,
+    help="Delete user rules associated with schema.table: vtm -v rules delete -s SCHEMA -t TABLE",
+)
+@option(
+    "-c",
+    "--column",
+    type=str,
+    required=False,
+    help="Delete user rules associated with column. Must specify schema and table as well (-st)",
+)
 @rules.command()
-def delete(rule_ids, all_rules):
+def delete(rule_ids, all_rules, schema, table, column):
     """
-    Delete rule from the cluster
+    Delete rule(s) from the cluster
     """
     con = get_config().get_connection_by_name("coordinator")
-    if (rule_ids is None) and not all_rules:
-        logger.info("Either -a or -i option is required")
+    if not(rule_ids or all_rules or (schema and table) or column):
+        logger.info("Additional option is required, for options run vtm rules delete --help")
         raise exceptions.Exit(code=1)
-    proceed = input(
-        f'Delete rules: {rule_ids if rule_ids else "all rules"} from the cluster? [y/N]: '
-    )
+    elif rule_ids or all_rules:
+        proceed = input(
+            f'Delete rules: {rule_ids if rule_ids else "All Rules"} from the cluster? [Y/n]: '
+        )
+    else:
+        proceed = input(
+            f'Delete rules from table: {schema}.{table}, column: {column if column else "All Columns"} from the cluster? [Y/n]: '
+        )
     if proceed == "n":
         logger.info("Aborting, no rules will be deleted")
         raise exceptions.Exit(code=1)
-    delete_rule(con=con, rule_ids=rule_ids, all_rules=all_rules)
+    delete_rule(con=con, rule_ids=rule_ids, all_rules=all_rules, schema=schema, table=table, column=column)
 
 
 @option(

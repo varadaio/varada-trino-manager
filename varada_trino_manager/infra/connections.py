@@ -148,7 +148,6 @@ class Rest(Client):
     @handle_response
     def post(self, sub_url: str, json_data: Union[dict, list] = None, headers: dict = None) -> Response:
         url = f"{self.url}/{sub_url}"
-        logger.debug(f"POST {url} {json_data}")
         return self.__client.post(url=url, json=json_data, headers=headers)
 
 
