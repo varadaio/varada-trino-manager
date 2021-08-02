@@ -16,7 +16,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 overall_res = defaultdict(lambda: defaultdict(dict))
 
 
-def run_queries(serial_queries: dict, client: APIClient, workload: int = 1, return_res: bool = False) -> Tuple[dict, int, list]:
+def run_queries(serial_queries: dict, client: APIClient, workload: int = 1, return_res: bool = False, is_concurrent: bool = False) -> Tuple[dict, int, list]:
     q_series_results = {}
     for query in serial_queries:
         parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg=f"VTM Run Query: {query}")
@@ -29,7 +29,10 @@ def run_queries(serial_queries: dict, client: APIClient, workload: int = 1, retu
                                    "totalSplits": q_stats["totalSplits"]}
         logger.info(f'Query: {query} QueryId: {q_stats["queryId"]} '
                     f'Single query execution time: {round(q_stats["elapsedTimeMillis"]*0.001, 3)} Seconds')
-    return q_series_results, workload, q_res if return_res else None
+        if return_res and len(serial_queries) > 1:
+            # only return 10 rows for multiple queries, for single query retrun all
+            q_series_results[query]["results"] = q_res[0:9]
+    return q_series_results, workload, q_res if (not is_concurrent and len(serial_queries) == 1) else None
 
 
 def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: int, sleep_time: int, queries_list: list,
@@ -69,8 +72,9 @@ def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: i
                                                        {query_id: f'--{query_id}\n {queries[query_id]}' if get_results
                                                         else f'--{query_id}\nEXPLAIN ANALYZE {queries[query_id]}'},
                                                        client,
+                                                       1,
                                                        get_results,
-                                                       get_results))
+                                                       concurrency > 1))
                 else:
                     for _ in range(concurrency):
                         for series in queries_list:
@@ -81,7 +85,8 @@ def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: i
                                                            serial_queries,
                                                            client,
                                                            queries_list.index(series)+1,
-                                                           get_results))
+                                                           get_results,
+                                                           concurrency > 1))
 
             queries_done = 0
             total_elapsed_time = 0
