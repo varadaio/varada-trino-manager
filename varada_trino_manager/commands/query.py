@@ -61,7 +61,8 @@ i.e. dictionary of queries where the keys - "Query1", "Query2"... are the query 
     "--get-results",
     is_flag=True,
     default=False,
-    help="Print query results. Please mind the results set size for log readability and test machine mem size",
+    help="Print query results. Returns full results for a single query, up to 10 rows for multiple queries. "
+         "Please mind the results set size for log readability and test machine mem size.",
 )
 @option(
     "-p",
