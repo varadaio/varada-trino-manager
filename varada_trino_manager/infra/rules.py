@@ -47,19 +47,19 @@ def apply(con: Connection, json_path: Path = None, csv_path: Path = None):
         fd.close()
 
 
-def get(con: Connection, table, column, destination_dir):
+def get(con: Connection, schema, table, column, destination_dir):
     with VaradaRest(con=con) as varada_rest:
         all_rules_str = varada_rest.get_warmup_rules()
         if column:
             if not table:
-                logger.info(f'Missing table for column {column}, please run with -t TABLE_NAME')
+                logger.info(f'Missing schema.table for column {column}, please run with -st SCHEMA_NAME.TABLE_NAME')
                 exit()
             else:
-                logger.info(f'Getting rules for table {table}, column {column}')
-                rules_str = [rule for rule in all_rules_str if rule['table'] == table and rule['colNameId'] == column]
+                logger.info(f'Getting rules for schema {schema}, table {table}, column {column}')
+                rules_str = [rule for rule in all_rules_str if (rule['schema'], rule['table'], rule['colNameId']) == (schema, table, column)]
         elif table:
-            logger.info(f'Rules for table {table}:')
-            rules_str = [rule for rule in all_rules_str if rule['table'] == table]
+            logger.info(f'Rules for schema {schema}, table {table}:')
+            rules_str = [rule for rule in all_rules_str if (rule['schema'], rule['table']) == (schema, table)]
         else:
             rules_str = all_rules_str
         if destination_dir:
@@ -70,9 +70,9 @@ def get(con: Connection, table, column, destination_dir):
             logger.info(dumps(rules_str, indent=4))
 
 
-def delete(con: Connection, rule_ids: str = None, all_rules: bool = False):
+def delete(con: Connection, rule_ids: str = None, all_rules: bool = False, schema: str = None, table: str = None, column: str = None):
     """
-    Delete rule from the cluster
+    Delete rule(s) from the cluster
     """
     with VaradaRest(con=con) as varada_rest:
         if rule_ids:
@@ -82,3 +82,11 @@ def delete(con: Connection, rule_ids: str = None, all_rules: bool = False):
             logger.info('Deleting all rules from the cluster')
             all_rules_str = varada_rest.get_warmup_rules()
             [varada_rest.del_warmup_rule(int(rule['id'])) for rule in all_rules_str]
+        else:
+            # Table
+            logger.info(f'Deleting rules from table: {schema}.{table}, column(s): {column if column else "All"}')
+            all_rules_str = varada_rest.get_warmup_rules()
+            if column:
+                [varada_rest.del_warmup_rule(int(rule['id'])) for rule in all_rules_str if (rule['schema'], rule['table'], rule['colNameId']) == (schema, table, column)]
+            else:
+                [varada_rest.del_warmup_rule(int(rule['id'])) for rule in all_rules_str if (rule['schema'], rule['table']) == (schema, table)]
