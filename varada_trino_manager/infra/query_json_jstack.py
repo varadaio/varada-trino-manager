@@ -28,7 +28,8 @@ def collect_jstack(wait: int, keep_running: Event):
         sleep(wait)
 
 
-def run(user: str, con: Connection, jsonpath: Path, query: str, jstack_wait: int, dest_dir: str, session_properties: dict = None):
+def run(user: str, con: Connection, jsonpath: Path, query: str, jstack_wait: int, dest_dir: str, catalog: str,
+        session_properties: dict = None):
     try:
         with open(jsonpath) as fd:
             queries = load(fd)
@@ -47,7 +48,7 @@ def run(user: str, con: Connection, jsonpath: Path, query: str, jstack_wait: int
     ]
     parallel_ssh_execute(command="\n".join(dir_commands))
 
-    with APIClient(con=con, username=user, session_properties=session_properties) as trino_client:
+    with APIClient(con=con, username=user, session_properties=session_properties, catalog=catalog) as trino_client:
         # Start collecting jstack as Thread, then run query; once query has completed - stop collection
         logger.info(f"Start collecting jstacks, interval of {jstack_wait}Sec")
         parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Query JSON JStack: Start Jstack Collection")
