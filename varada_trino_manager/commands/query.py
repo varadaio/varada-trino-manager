@@ -71,6 +71,13 @@ i.e. dictionary of queries where the keys - "Query1", "Query2"... are the query 
     default=None,
     help="Session property(ies) to set prior to running the queries, in the form of: key=value or for multiple: key1=value1,key2=value2... ",
 )
+@option(
+    "-ca",
+    "--catalog",
+    type=str,
+    default='varada',
+    help="Catalog to run the queries on, default is varada",
+)
 @argument("queries_list", nargs=-1)
 @query.command()
 def runner(
@@ -82,6 +89,7 @@ def runner(
     queries_list,
     get_results,
     session_properties,
+    catalog,
 ):
     """
     Run queries on Varada Cluster, per the following examples:
@@ -109,6 +117,7 @@ def runner(
         con=con,
         get_results=get_results,
         session_properties=properties,
+        catalog=catalog if catalog else 'varada'
     )
 
 
@@ -161,9 +170,16 @@ def json(query_id, destination_dir):
     default=None,
     help="Session property(ies) to set prior to running the queries, in the form of: key=value or for multiple: key1=value1,key2=value2... ",
 )
+@option(
+    "-ca",
+    "--catalog",
+    type=str,
+    default='varada',
+    help="Catalog to run the queries on, default is varada",
+)
 @argument("query_name", nargs=1)
 @query.command()
-def json_jstack(destination_dir, jsonpath, jstack_wait, query_name, session_properties):
+def json_jstack(destination_dir, jsonpath, jstack_wait, query_name, session_properties, catalog):
     """
     Run query and collect jstack from all nodes, collect query json once completed.
     """
@@ -179,4 +195,5 @@ def json_jstack(destination_dir, jsonpath, jstack_wait, query_name, session_prop
         jstack_wait=jstack_wait,
         dest_dir=destination_dir,
         session_properties=properties,
+        catalog=catalog,
     )

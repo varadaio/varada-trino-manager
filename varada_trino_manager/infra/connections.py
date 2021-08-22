@@ -216,11 +216,13 @@ class APIClient(Client):
 
     def __init__(
         self, con: Connection, username: str = None, http_schema: str = Schemas.HTTP, session_properties: dict = None,
+            catalog: str = None
     ):
         super(APIClient, self).__init__(con=con, port=con.distribution.port)
         self.__username = getuser() if username is None else username
         self.__http_schema = http_schema
         self.__session_properties = session_properties
+        self.__catalog = catalog
 
     def connect(self):
         cls = self.distribution_to_class.get(self.connection.distribution.brand)
@@ -233,6 +235,7 @@ class APIClient(Client):
             http_scheme=self.__http_schema,
             http_headers={},
             session_properties=self.__session_properties,
+            catalog=self.__catalog
         )
 
     def close(self):

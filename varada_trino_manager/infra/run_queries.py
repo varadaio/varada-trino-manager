@@ -36,7 +36,7 @@ def run_queries(serial_queries: dict, client: APIClient, workload: int = 1, retu
 
 
 def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: int, sleep_time: int, queries_list: list,
-        con: Connection, get_results: bool = False, session_properties: dict = None):
+        con: Connection, catalog: str, get_results: bool = False, session_properties: dict = None):
     try:
         with open(jsonpath) as fd:
             queries = load(fd)
@@ -57,7 +57,7 @@ def run(user: str, jsonpath: Path, concurrency: int, random: bool, iterations: i
                     raise exceptions.Exit(code=1)
             logger.info(f'Series {queries_list.index(parallel_queries)}: {parallel_queries}')
 
-    with APIClient(con=con, username=user, session_properties=session_properties) as client:
+    with APIClient(con=con, username=user, session_properties=session_properties, catalog=catalog) as client:
         parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Query Runner Start")
         for iteration in range(iterations):
             logger.info(f"Running: Iteration {iteration+1}")
