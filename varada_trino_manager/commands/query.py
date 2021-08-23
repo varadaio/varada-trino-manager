@@ -16,37 +16,43 @@ def query():
 
 
 @option(
+    "-f",
+    "--filepath",
+    type=ClickPath(exists=True),
+    help="Location of TXT file with sql to be run, where queries (SQL statements) are separated by ';'",
+)
+@option(
     "-j",
     "--jsonpath",
     type=ClickPath(exists=True),
-    required=True,
     help="""Location of JSON with queries to be run.
-JSON format as per the below example:
-
-\b
-{
-    "Query1": "select count(*) from varada.<SCHEMA>.<TABLE>",
-    "Query2": "select col40 from varada.<SCHEMA>.<TABLE>",
-    "Query3": "select col45, col63 from varada.<SCHEMA>.<TABLE>"
-}
-\b
-
-i.e. dictionary of queries where the keys - "Query1", "Query2"... are the query names, and the values are the corresponding query SQL statements.
-""",
+    JSON format as per the below example:
+    
+    \b
+    {
+        "Query1": "select count(*) from varada.<SCHEMA>.<TABLE>",
+        "Query2": "select col40 from varada.<SCHEMA>.<TABLE>",
+        "Query3": "select col45, col63 from varada.<SCHEMA>.<TABLE>"
+    }
+    \b
+    
+    i.e. dictionary of queries where the keys - "Query1", "Query2"... are the query names, 
+    and the values are the corresponding query SQL statements.
+    """,
 )
 @option(
     "-c",
     "--concurrency",
     type=int,
-    default=1,
-    help="Concurrency factor for parallel queries execution",
+    default=0,
+    help="Concurrency factor for parallel queries execution when random option selected.",
 )
 @option(
     "-r",
     "--random",
     is_flag=True,
     default=False,
-    help="Select random query. If specified will ignore query_list",
+    help="Select random query. Concurrency (-c) must be specified as well",
 )
 @option("-i", "--iterations", type=int, default=1, help="Number of iterations to run")
 @option(
@@ -82,6 +88,7 @@ i.e. dictionary of queries where the keys - "Query1", "Query2"... are the query 
 @query.command()
 def runner(
     jsonpath,
+    filepath,
     concurrency,
     random,
     iterations,
@@ -95,20 +102,22 @@ def runner(
     Run queries on Varada Cluster, per the following examples:
 
     \b
-        vtm -v query runner -j <queries.json> q1                 => Run q1 a single time, where q1 is the key in queries.json
-        vtm -v query runner -j <queries.json> -i 3 q2,q3         => Run q2,q3 serially, iterate 3 times
-        vtm -v query runner -j <queries.json> q1,q2,q3 q4,q5     => Run q1,q2,q3 serially, run in parallel q4,q5
-        vtm -v query runner -j <queries.json> -c 6 -r            => Run randomly selected queries to run with concurrency 6
+        vtm query runner -j <queries.json> q1                 => Run q1 a single time, where q1 is the key in queries.json
+        vtm query runner -f <queries>                  => Run all sql statements from <queries> text file serially, where ';' separates queries in the file
+        vtm query runner -j <queries.json> -i 3 q2,q3         => Run q2,q3 serially, iterate 3 times
+        vtm -v query runner -j <queries.json> q1,q2,q3 q4,q5     => Run q1,q2,q3 serially, run in parallel q4,q5, be verbose
+        vtm -v query runner -f <queries> 0,1,2 3,4      => Same as above, for text file where queries_list consists of indices of sql statements in the file (starting with 0)
+        vtm query runner -j <queries.json> -c 6 -r            => Run randomly selected queries to run with concurrency 6
     \b
     """
     con = get_config().get_connection_by_name("coordinator")
     properties = (
         session_props_to_dict(session_properties) if session_properties else None
     )
-
     query_runner(
         user=con.username,
         jsonpath=jsonpath,
+        txtpath=filepath,
         concurrency=concurrency,
         random=random,
         iterations=iterations,
