@@ -22,6 +22,10 @@ class DistributionConfiguration(BaseModel):
     port: Union[StrictInt, None]
 
 
+class VaradaConfiguration(BaseModel):
+    port: Union[StrictInt, None]
+
+
 class Connection(BaseModel):
     hostname: StrictStr
     port: StrictInt
@@ -31,6 +35,7 @@ class Connection(BaseModel):
     bastion_username: Union[StrictStr, None]
     role: RoleEnum
     distribution: DistributionConfiguration
+    varada: VaradaConfiguration
 
     @property
     def with_bastion(self) -> bool:
@@ -62,12 +67,14 @@ class Configuration(BaseModel):
     port: StrictInt
     bastion: BastionConfiguration
     distribution: DistributionConfiguration
+    varada: VaradaConfiguration
 
     @classmethod
     def from_json(cls, file_path: str) -> Configuration:
         data = read_file_as_json(file_path=file_path)
         bastion_data = data.get("bastion", dict())
         distribution_data = data.get('distribution', dict())
+        varada_data = data.get('varada', dict())
         try:
             bastion = BastionConfiguration(
                 hostname=bastion_data.get("hostname"),
@@ -78,13 +85,15 @@ class Configuration(BaseModel):
                 brand=distribution_data.get('brand', BrandEnum.trino),
                 port=distribution_data.get('port', Common.API_PORT)
             )
+            varada = VaradaConfiguration(port=varada_data.get('port', Common.VARADA_PORT))
             return cls(
                 coordinator=data.get("coordinator"),
                 workers=data.get("workers"),
                 username=data.get("username"),
                 port=data.get("port"),
                 bastion=bastion,
-                distribution=distribution
+                distribution=distribution,
+                varada=varada
             )
         except error_wrappers.ValidationError as e:
             logger.error(f"Configuration is malformed: {e}")
@@ -104,7 +113,8 @@ class Configuration(BaseModel):
                 bastion_hostname=self.bastion.hostname,
                 bastion_username=self.bastion.username,
                 role=RoleEnum.worker,
-                distribution=self.distribution
+                distribution=self.distribution,
+                varada=self.varada
             )
 
     @property
@@ -117,7 +127,8 @@ class Configuration(BaseModel):
             bastion_hostname=self.bastion.hostname,
             bastion_username=self.bastion.username,
             role=RoleEnum.coordinator,
-            distribution=self.distribution
+            distribution=self.distribution,
+            varada=self.varada
         )
 
     def iter_connections(self) -> Connection:
@@ -151,6 +162,7 @@ class Configuration(BaseModel):
             bastion_username=self.bastion.username,
             role=role,
             distribution=self.distribution,
+            varada=self.varada
         )
 
 

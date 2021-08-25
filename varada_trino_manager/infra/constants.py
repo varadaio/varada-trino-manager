@@ -20,3 +20,4 @@ class Common:
     SSH_ARGS = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o TCPKeepAlive=yes -o ServerAliveInterval=150 -o ServerAliveCountMax=4"
     SSH_ARGS_AGENT_FORWARDING = f"{SSH_ARGS} -A -tt"
     API_PORT = 8080
+    VARADA_PORT = 8088
