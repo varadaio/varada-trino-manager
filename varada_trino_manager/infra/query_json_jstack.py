@@ -6,7 +6,7 @@ from click import exceptions
 from threading import Thread, Event
 from .configuration import Connection
 from .rest_commands import RestCommands
-from .connections import APIClient, VaradaRest
+from .connections import APIClient, VaradaRest, ExtendedRest
 from .remote import parallel_ssh_execute, parallel_download, parallel_rest_execute
 
 
