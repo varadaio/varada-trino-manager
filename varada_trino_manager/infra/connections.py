@@ -1,4 +1,5 @@
 from os import makedirs
+from copy import deepcopy
 from .utils import logger
 from getpass import getuser
 from typing import Tuple, Union
@@ -118,7 +119,7 @@ def handle_response(func):
         response = func(self, *args, **kw)
         if response.status_code == codes.ok:
             return response
-        raise exceptions.HTTPError(response=response)
+        raise exceptions.HTTPError(response=response, )
 
     return handle_response_wrapper
 
@@ -170,12 +171,17 @@ class ExtendedRest(Rest):
             raise ValueError(f'Invalid brand: {self.__brand}')
         return {header_key: 'varada'}
 
+    def get(self, sub_url: str, headers: dict = None) -> Response:
+        headers = deepcopy(self.headers)
+        headers.update({} if headers is None else headers)
+        return super(ExtendedRest, self).get(sub_url=sub_url, headers=headers)
+
     @property
     def url(self) -> str:
         return f"{super(ExtendedRest, self).url}/v1"
 
     def query_json(self, query_id: str):
-        return self.get(sub_url=f'query/{query_id}?pretty', headers=self.headers)
+        return self.get(sub_url=f'query/{query_id}?pretty')
 
 
 class VaradaRest(Rest):

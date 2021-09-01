@@ -1,7 +1,10 @@
-from click import group, argument, echo
+from json import dump
+from ..infra.constants import Paths
 from ..infra.configuration import get_config
 from ..infra.rest_commands import RestCommands, ExtendedRest
-from ..infra.remote import parallel_ssh_execute, rest_execute
+from click import group, argument, echo, option, Path as ClickPath
+from ..infra.options import add_options, TARGET_MAP, NODES_OPTIONS
+from ..infra.remote import parallel_ssh_execute, rest_execute, parallel_rest_execute
 
 
 @group()
@@ -22,6 +25,32 @@ def info(node):
     """
     con = get_config().get_connection_by_name(node)
     echo(rest_execute(con=con, rest_client_type=ExtendedRest, func=RestCommands.info))
+
+
+@option(
+    "-d",
+    "--destination-dir",
+    type=ClickPath(),
+    default=None,
+    help="Destination dir to save the jstack output",
+)
+@argument("node", default="coordinator", nargs=1)
+@etc.command()
+def jstack(node, destination_dir):
+    """
+    Collect jstack from the nodes and save to --destination-dir
+    example: coordinator/node-1/node-2.../all
+    default: all
+    """
+    if node != 'all':
+        con = get_config().get_connection_by_name(node)
+        jstack_results = rest_execute(con=con, rest_client_type=ExtendedRest, func=RestCommands.jstack)
+    else:
+        jstack_results = parallel_rest_execute(rest_client_type=ExtendedRest, func=RestCommands.jstack)
+    dir_path = Paths.logs_path if destination_dir is None else destination_dir
+    for future, hostname in jstack_results:
+        with open(f'{dir_path}/jstack_{hostname}.json', 'w') as fd:
+            dump(future.result(), fd, indent=2)
 
 
 @etc.command()

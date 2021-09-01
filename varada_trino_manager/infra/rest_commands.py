@@ -16,6 +16,10 @@ class RestCommands:
         return client.get("info").json()
 
     @staticmethod
+    def jstack(client: Rest):
+        return client.get("thread").json()
+
+    @staticmethod
     @return_single_value
     def is_all_nodes_connected(client: APIClient) -> bool:
         result, _ = client.execute(
@@ -28,7 +32,6 @@ class RestCommands:
         with ExtendedRest(con=con) as trino_rest, open(f'{dest_dir}/{query_id}.json', 'w') as fd:
             data = trino_rest.query_json(query_id=query_id).json()
             dump(data, fd, indent=2)
-
 
     @staticmethod
     def dev_log(client: VaradaRest, msg: str):
