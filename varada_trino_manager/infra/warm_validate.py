@@ -69,11 +69,11 @@ def run(user: str, jsonpath: Path, con: Connection, queries_list: list):
 
     with VaradaRest(con=con) as varada_rest, APIClient(con=con, username=user, session_properties={EMPTY_Q: 'true'}) as presto_client:
         # long warmup loop - verify warmup query
-        parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Warm And Validate: Start")
+        parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Warm And Validate: Start", coordinator=True, workers=True)
         logger.info('Running warmup queries with varada.empty_query=true')
         for warm_q in warmup_queries:
             warmup_complete = False
-            parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg=f"VTM Warm And Validate: Running query: {warm_q}")
+            parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg=f"VTM Warm And Validate: Running query: {warm_q}", coordinator=True, workers=True)
             presto_client.execute(warmup_queries[warm_q])
             sleep(3)
             while not warmup_complete:
@@ -95,5 +95,5 @@ def run(user: str, jsonpath: Path, con: Connection, queries_list: list):
             except Exception:
                 logger.error(f'Failed rest call to row_group_count')
                 logger.error(format_exc())
-        parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Warm And Validate: End")
+        parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Warm And Validate: End", coordinator=True, workers=True)
         logger.info(f'Warmup complete')
