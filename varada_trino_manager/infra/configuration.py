@@ -69,6 +69,10 @@ class Configuration(BaseModel):
     distribution: DistributionConfiguration
     varada: VaradaConfiguration
 
+    @property
+    def is_single(self) -> bool:
+        return len(self.workers) == 1 and self.coordinator == self.workers[0]
+
     @classmethod
     def from_json(cls, file_path: str) -> Configuration:
         data = read_file_as_json(file_path=file_path)
@@ -101,6 +105,8 @@ class Configuration(BaseModel):
 
     @property
     def number_of_nodes(self) -> int:
+        if self.is_single:
+            return 1
         return len(self.workers) + 1
 
     def iter_workers_connections(self):
@@ -133,7 +139,8 @@ class Configuration(BaseModel):
 
     def iter_connections(self) -> Connection:
         yield self.coordinator_connection
-        yield from self.iter_workers_connections()
+        if not self.is_single:
+            yield from self.iter_workers_connections()
 
     def get_connection_by_name(self, node: str) -> Connection:
         if node == "coordinator":
