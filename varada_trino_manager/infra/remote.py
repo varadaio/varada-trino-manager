@@ -1,4 +1,3 @@
-from click import echo
 from typing import Union
 from .utils import logger
 from .constants import Common
@@ -17,15 +16,21 @@ def rest_execute(con: Connection, rest_client_type: Union[Rest, APIClient, Exten
         return func(client, *args, **kw)
 
 
-def parallel_rest_execute(rest_client_type: Union[Rest, APIClient, VaradaRest], func, *args, **kw):
+def parallel_rest_execute(rest_client_type: Union[Rest, APIClient, VaradaRest], func, coordinator: bool = False, workers: bool = False, *args, **kw):
     config = get_config()
+    if coordinator:
+        connections = [config.coordinator_connection]
+    elif workers:
+        connections = config.iter_workers_connections()
+    else:
+        connections = config.iter_connections()
     with ThreadPoolExecutor(max_workers=config.number_of_nodes) as tpx:
         tasks = [
             (
                 tpx.submit(rest_execute, con=connection, rest_client_type=rest_client_type, func=func, *args, **kw),
                 connection.hostname,
             )
-            for connection in config.iter_connections()
+            for connection in connections
         ]
     return tasks
 
