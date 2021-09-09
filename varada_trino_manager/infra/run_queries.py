@@ -3,7 +3,8 @@ from pathlib import Path
 from typing import Tuple
 from random import choice
 from .utils import logger
-from json import load, dumps
+from datetime import datetime
+from json import load, dump, dumps
 from .connections import APIClient
 from click import exceptions, echo
 from collections import defaultdict
@@ -17,7 +18,8 @@ overall_res = defaultdict(lambda: defaultdict(list))
 
 
 def run_queries(serial_queries: dict, client: APIClient, workload: int = 1, return_res: bool = False,
-                is_concurrent: bool = False) -> Tuple[list, int, list]:
+                is_concurrent: bool = False, collect_query_json: bool = False, con: Connection = None,
+                query_jsons_dir: Path = None) -> Tuple[list, int, list]:
     q_series_results = []
     for query in serial_queries:
         parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg=f"VTM Run Query: {query}")
@@ -32,6 +34,9 @@ def run_queries(serial_queries: dict, client: APIClient, workload: int = 1, retu
                                  })
         logger.info(f'Query: {query} QueryId: {q_stats["queryId"]} '
                     f'Single query execution time: {round(q_stats["elapsedTimeMillis"] * 0.001, 3)} Seconds')
+        if collect_query_json:
+            logger.info(f'Getting query json for query_id {q_stats["queryId"]}, saving to {query_jsons_dir}')
+            RestCommands.save_query_json(con=con, dest_dir=query_jsons_dir, query_id=q_stats["queryId"])
     return q_series_results, workload, q_res if (
                 not is_concurrent and len(serial_queries) == 1 and return_res) else None
 
@@ -119,7 +124,8 @@ def run_txt(file_path: Path, concurrency: int, random: bool, queries_list: list,
 
 
 def run(user: str, jsonpath: Path, txtpath: Path, queries_list: list, concurrency: int, random: bool, iterations: int,
-        sleep_time: int, con: Connection, catalog: str, get_results: bool = False, session_properties: dict = None):
+        sleep_time: int, con: Connection, catalog: str, destination_dir: Path, get_results: bool = False,
+        session_properties: dict = None, collect_query_json: bool = False,):
     func_maps = {
         (False, True): (run_txt, txtpath),
         (True, False): (run_json, jsonpath)
@@ -134,6 +140,10 @@ def run(user: str, jsonpath: Path, txtpath: Path, queries_list: list, concurrenc
         elif not concurrency:
             logger.exception(f"Concurrency option (-c) must be specified with random option (-r)")
             raise exceptions.Exit(code=1)
+    if collect_query_json:
+        # Create separate local directory for jsons
+        query_jsons_dir = Path(f'{destination_dir}_query_jsons_{datetime.now()}'.replace(' ', '_').replace(':', '-'))
+        query_jsons_dir.mkdir()
 
     func, file_path = func_maps[(bool(jsonpath), bool(txtpath))]
     queries_prepared, verified_concurrency = func(file_path=file_path,
@@ -163,7 +173,11 @@ def run(user: str, jsonpath: Path, txtpath: Path, queries_list: list, concurrenc
                                                        client,
                                                        queries_prepared.index(series) + 1,
                                                        get_results,
-                                                       verified_concurrency > 1))
+                                                       verified_concurrency > 1,
+                                                       collect_query_json,
+                                                       con,
+                                                       query_jsons_dir,
+                                                       ))
             queries_done = 0
             total_elapsed_time = 0
             for future in as_completed(futures):
@@ -184,4 +198,7 @@ def run(user: str, jsonpath: Path, txtpath: Path, queries_list: list, concurrenc
                 logger.info(f'Sleeping {sleep_time} seconds before next run')
                 sleep(sleep_time)
         parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Query Runner End")
+        with open(f"{destination_dir}/query_runner_overall_results_{datetime.now().strftime('%H%M%S%f')}.json", 'w') as fd:
+            dump(overall_res, fd, indent=2)
+        fd.close()
         logger.info(f'Overall run results: {dumps(overall_res, indent=2)}')
