@@ -21,7 +21,7 @@ def send(msg):
     """
     # concat tuple arg into one string
     send_msg = " ".join(msg)
-    parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg=send_msg, coordinator=True, workers=True)
+    parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg=send_msg)
 
 
 @logs.command()

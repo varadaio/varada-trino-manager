@@ -39,8 +39,8 @@ def info(node):
 def jstack(target, destination_dir):
     """
     Collect jstack from the nodes and save to --destination-dir
-    example: coordinator/node-1/node-2.../all
-    default: all
+    example: coordinator/node-1/node-2...
+    default: all (no target given)
     """
     coordinator, workers = TARGET_MAP[target]
     dir_path = Paths.logs_path if destination_dir is None else destination_dir
