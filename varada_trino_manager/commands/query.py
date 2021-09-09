@@ -84,6 +84,20 @@ def query():
     default='varada',
     help="Catalog to run the queries on, default is varada",
 )
+@option(
+    "-co",
+    "--collect-jsons",
+    is_flag=True,
+    default=False,
+    help="Collect jsons for all queries, save to destination-dir (-d)",
+)
+@option(
+    "-d",
+    "--destination-dir",
+    type=ClickPath(),
+    default=Paths.logs_path,
+    help=f"Destination dir to save the run results and query jsons (optional), by default will be created under {Paths.logs_path}",
+)
 @argument("queries_list", nargs=-1)
 @query.command()
 def runner(
@@ -97,6 +111,8 @@ def runner(
     get_results,
     session_properties,
     catalog,
+    collect_jsons,
+    destination_dir,
 ):
     """
     Run queries on Varada Cluster, per the following examples:
@@ -124,9 +140,11 @@ def runner(
         sleep_time=sleep,
         queries_list=[q_series.split(",") for q_series in queries_list],
         con=con,
+        destination_dir=destination_dir,
         get_results=get_results,
         session_properties=properties,
-        catalog=catalog if catalog else 'varada'
+        catalog=catalog if catalog else 'varada',
+        collect_query_json=collect_jsons,
     )
 
 
