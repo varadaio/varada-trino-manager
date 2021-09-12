@@ -4,6 +4,7 @@ from typing import Tuple
 from random import choice
 from .utils import logger
 from datetime import datetime
+from ..infra.jmx import ExtVrdJmx
 from json import load, dump, dumps
 from .connections import APIClient
 from click import exceptions, echo
@@ -15,28 +16,11 @@ from ..infra.rest_commands import RestCommands
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 
-class ExtVrdJmx:
-    VARADA_MATCH_COLUMNS = 0
-    VARADA_COLLECT_COLUMNS = 1
-    EXTERNAL_MATCH_COLUMNS = 2
-    EXTERNAL_COLLECT_COLUMNS = 3
-    PREFILLED_COLLECT_COLUMNS = 4
-
-
-DISPATCHER_JMX_Q = "select " \
-                   "sum(varada_match_columns) varada_match_columns, " \
-                   "sum(varada_collect_columns) varada_collect_columns, " \
-                   "sum(external_match_columns) external_match_columns, " \
-                   "sum(external_collect_columns) external_collect_columns, " \
-                   "sum(prefilled_collect_columns) prefilled_collect_columns " \
-                   "from jmx.current.\"io.varada.presto:type=VaradaStatsDispatcherPageSource,name=dispatcherPageSource.varada\" " \
-                   "group by 'group'"
-
 overall_res = defaultdict(lambda: defaultdict(list))
 
 
 def get_distpatcher_stats(presto_client: APIClient,):
-    jmx_stats, _ = presto_client.execute(DISPATCHER_JMX_Q)
+    jmx_stats, _ = presto_client.execute(ExtVrdJmx.DISPATCHER_JMX_Q)
     # since the returned value is always one line, we'll pop it to not have to ref index each time
     jmx_stats = jmx_stats.pop()
     logger.info(f"JMX Varada/External: \n"

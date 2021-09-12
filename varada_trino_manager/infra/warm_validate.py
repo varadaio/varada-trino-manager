@@ -2,6 +2,7 @@ from time import sleep
 from json import dumps
 from pathlib import Path
 from .utils import logger
+from ..infra.jmx import WarmJmx
 from traceback import format_exc
 from click import exceptions, echo
 from .utils import read_file_as_json
@@ -11,34 +12,18 @@ from .connections import VaradaRest, APIClient
 from ..infra.rest_commands import RestCommands
 
 
-class WarmJmx:
-    SCHEDULED = 0
-    STARTED = 1
-    FINISHED = 2
-    FAILED = 3
-    SKIPPED_QUEUE_SIZE = 4
-    SKIPPED_DEMOTER = 5
-
-
 EMPTY_Q = 'varada.empty_query'
-WARM_JMX_Q = 'select sum(warm_scheduled) as warm_scheduled, ' \
-             'sum(warm_started) as warm_started, ' \
-             'sum(warm_finished) as warm_finished, ' \
-             'sum(warm_failed) as warm_failed, ' \
-             'sum(warm_skipped_due_queue_size) as warm_skipped_due_queue_size, ' \
-             'sum(warm_skipped_due_demoter) as warm_skipped_due_demoter ' \
-             'from jmx.current.\"io.varada.presto:type=VaradaStatsWarmingService,name=warming-service.varada\"'
 
 
 def check_warmup_status(presto_client: APIClient, verify_started: bool = False) -> bool:
-    warm_status, _ = presto_client.execute(WARM_JMX_Q)
+    warm_status, _ = presto_client.execute(WarmJmx.WARM_JMX_Q)
     # since the returned value is always one line, we'll pop it to not have to ref index each time
     warm_status = warm_status.pop()
     logger.info(f'warm status: {warm_status}')
     if verify_started:
         logger.info(f'Check increment in 15 sec')
         sleep(15)
-        new_warm_status, _ = presto_client.execute(WARM_JMX_Q)
+        new_warm_status, _ = presto_client.execute(WarmJmx.WARM_JMX_Q)
         new_warm_status = new_warm_status.pop()
         logger.info(f'warm status: {new_warm_status}')
         return (new_warm_status[WarmJmx.SCHEDULED] - new_warm_status[WarmJmx.FAILED] - new_warm_status[WarmJmx.SKIPPED_DEMOTER]
