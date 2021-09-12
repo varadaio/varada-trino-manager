@@ -14,7 +14,37 @@ from .remote import parallel_rest_execute
 from ..infra.rest_commands import RestCommands
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+
+class ExtVrdJmx:
+    VARADA_MATCH_COLUMNS = 0
+    VARADA_COLLECT_COLUMNS = 1
+    EXTERNAL_MATCH_COLUMNS = 2
+    EXTERNAL_COLLECT_COLUMNS = 3
+    PREFILLED_COLLECT_COLUMNS = 4
+
+
+DISPATCHER_JMX_Q = "select " \
+                   "sum(varada_match_columns) varada_match_columns, " \
+                   "sum(varada_collect_columns) varada_collect_columns, " \
+                   "sum(external_match_columns) external_match_columns, " \
+                   "sum(external_collect_columns) external_collect_columns, " \
+                   "sum(prefilled_collect_columns) prefilled_collect_columns " \
+                   "from jmx.current.\"io.varada.presto:type=VaradaStatsDispatcherPageSource,name=dispatcherPageSource.varada\" " \
+                   "group by 'group'"
+
 overall_res = defaultdict(lambda: defaultdict(list))
+
+
+def get_distpatcher_stats(presto_client: APIClient,):
+    jmx_stats, _ = presto_client.execute(DISPATCHER_JMX_Q)
+    # since the returned value is always one line, we'll pop it to not have to ref index each time
+    jmx_stats = jmx_stats.pop()
+    logger.info(f"JMX Varada/External: \n"
+                f"varada_match_columns: {jmx_stats[ExtVrdJmx.VARADA_MATCH_COLUMNS]}\n"
+                f"varada_collect_columns: {jmx_stats[ExtVrdJmx.VARADA_COLLECT_COLUMNS]}\n"
+                f"external_match_columns: {jmx_stats[ExtVrdJmx.EXTERNAL_MATCH_COLUMNS]}\n"
+                f"external_collect_columns: {jmx_stats[ExtVrdJmx.EXTERNAL_COLLECT_COLUMNS]}\n"
+                f"prefilled_collect_columns: {jmx_stats[ExtVrdJmx.PREFILLED_COLLECT_COLUMNS]}\n")
 
 
 def run_queries(serial_queries: dict, client: APIClient, multiple_query: bool, workload: int = 1, return_res: bool = False,
@@ -125,7 +155,7 @@ def run_txt(file_path: Path, concurrency: int, random: bool, queries_list: list,
 
 def run(user: str, jsonpath: Path, txtpath: Path, queries_list: list, concurrency: int, random: bool, iterations: int,
         sleep_time: int, con: Connection, catalog: str, destination_dir: Path, get_results: bool = False,
-        session_properties: dict = None, collect_query_json: bool = False,):
+        session_properties: dict = None, collect_query_json: bool = False, collect_dispatcher_stats: bool = False):
     func_maps = {
         (False, True): (run_txt, txtpath),
         (True, False): (run_json, jsonpath)
@@ -153,6 +183,9 @@ def run(user: str, jsonpath: Path, txtpath: Path, queries_list: list, concurrenc
                                                   get_results=get_results)
     q_lists_length_check = [len(q_lst) > 1 for q_lst in queries_prepared]
     multiple_query = True in q_lists_length_check or len(queries_prepared) > 1
+    if multiple_query and collect_dispatcher_stats:
+        logger.exception(f"Collecting jmx_stats not supported for multiple queries")
+        raise exceptions.Exit(code=1)
     logger.info(f'Run the queries on catalog {catalog}, '
                 f'for {iterations} iterations overall concurrency'
                 f' {verified_concurrency}')
@@ -166,6 +199,10 @@ def run(user: str, jsonpath: Path, txtpath: Path, queries_list: list, concurrenc
             parallel_rest_execute(rest_client_type=VaradaRest,
                                   func=RestCommands.dev_log,
                                   msg=f"VTM Query Runner Iteration {iteration + 1}")
+            if collect_dispatcher_stats:
+                logger.info("Dispatcher stats before query run:")
+                get_distpatcher_stats(presto_client=client)
+
             futures = []
             with ProcessPoolExecutor(max_workers=verified_concurrency) as executor:
                 for series in queries_prepared:
@@ -199,7 +236,9 @@ def run(user: str, jsonpath: Path, txtpath: Path, queries_list: list, concurrenc
                                 dump(query_results, fd, indent=2)
                             fd.close()
 
-
+            if collect_dispatcher_stats:
+                logger.info("Dispatcher stats after query run:")
+                get_distpatcher_stats(presto_client=client)
             logger.info(
                 f'Iteration {iteration + 1} average elapsed time is {total_elapsed_time / queries_done} Seconds')
             logger.info(f'Iteration {iteration + 1} total elapsed time is {total_elapsed_time} Seconds')
