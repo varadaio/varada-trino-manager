@@ -92,6 +92,13 @@ def query():
     help="Collect jsons for all queries, save to destination-dir (-d)",
 )
 @option(
+    "-jmx",
+    "--jmx-stats",
+    is_flag=True,
+    default=False,
+    help="Collect jmx Varada/External statistics before and after query. Note that these counters are global for the Varada catalog, hence concurrent runs are not supported",
+)
+@option(
     "-d",
     "--destination-dir",
     type=ClickPath(),
@@ -113,6 +120,7 @@ def runner(
     catalog,
     collect_jsons,
     destination_dir,
+    jmx_stats,
 ):
     """
     Run queries on Varada Cluster, per the following examples:
@@ -145,6 +153,7 @@ def runner(
         session_properties=properties,
         catalog=catalog if catalog else 'varada',
         collect_query_json=collect_jsons,
+        collect_dispatcher_stats=jmx_stats
     )
 
 
