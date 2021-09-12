@@ -34,7 +34,7 @@ def info(node):
     default=None,
     help="Destination dir to save the jstack output",
 )
-@add_options(NODES_OPTIONS)
+@argument("target", default="all", nargs=1)
 @etc.command()
 def jstack(target, destination_dir):
     """
@@ -42,12 +42,16 @@ def jstack(target, destination_dir):
     example: coordinator/node-1/node-2...
     default: all (no target given)
     """
-    coordinator, workers = TARGET_MAP[target]
+    con = get_config().get_connection_by_name(target) if target != "all" else None
     dir_path = Paths.logs_path if destination_dir is None else destination_dir
-    jstack_results = parallel_rest_execute(rest_client_type=ExtendedRest, func=RestCommands.jstack, coordinator=coordinator, workers=workers)
+    jstack_results = parallel_rest_execute(rest_client_type=ExtendedRest, func=RestCommands.jstack) if target == "all" \
+        else [(rest_execute(con=con, rest_client_type=ExtendedRest, func=RestCommands.jstack), con.hostname)]
     for future, hostname in jstack_results:
         with open(f'{dir_path}/jstack_{hostname}.json', 'w') as fd:
-            dump(future.result(), fd, indent=2)
+            if target == "all":
+                dump(future.result(), fd, indent=2)
+            else:
+                dump(future, fd, indent=2)
 
 
 @etc.command()
