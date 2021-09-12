@@ -1,3 +1,7 @@
+from .connections import APIClient
+from .configuration import Connection
+
+
 class WarmJmx:
     SCHEDULED = 0
     STARTED = 1
@@ -12,6 +16,14 @@ class WarmJmx:
                  'sum(warm_skipped_due_queue_size) as warm_skipped_due_queue_size, ' \
                  'sum(warm_skipped_due_demoter) as warm_skipped_due_demoter ' \
                  'from jmx.current.\"io.varada.presto:type=VaradaStatsWarmingService,name=warming-service.varada\"'
+
+    @staticmethod
+    def get_warmup_status(con: Connection) -> list:
+        with APIClient(con=con,) as presto_client:
+            warm_status, _ = presto_client.execute(WarmJmx.WARM_JMX_Q)
+            # since the returned value is always one line, we'll pop it to not have to ref index each time
+            warm_status = warm_status.pop()
+        return warm_status
 
 
 class ExtVrdJmx:

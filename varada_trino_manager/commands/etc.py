@@ -1,9 +1,10 @@
 from json import dump
+from ..infra.jmx import WarmJmx
+from ..infra.utils import logger
 from ..infra.constants import Paths
 from ..infra.configuration import get_config
 from ..infra.rest_commands import RestCommands, ExtendedRest
 from click import group, argument, echo, option, Path as ClickPath
-from ..infra.options import add_options, TARGET_MAP, NODES_OPTIONS
 from ..infra.remote import parallel_ssh_execute, rest_execute, parallel_rest_execute
 
 
@@ -73,3 +74,19 @@ def is_panic_error():
             echo(f"found error in {hostname}")
         else:
             echo(f"no error found in {hostname}")
+
+
+@etc.command()
+def loading_status():
+    """
+    Print Varada loading counters
+    """
+    con = get_config().get_connection_by_name("coordinator")
+    status = WarmJmx.get_warmup_status(con=con)
+    logger.info(f"Loading Status: \n"
+                f"warm_scheduled: {status[WarmJmx.SCHEDULED]}\n"
+                f"warm_started: {status[WarmJmx.STARTED]}\n"
+                f"warm_finished: {status[WarmJmx.FINISHED]}\n"
+                f"warm_failed: {status[WarmJmx.FAILED]}\n"
+                f"warm_skipped_due_queue_size: {status[WarmJmx.SKIPPED_QUEUE_SIZE]}\n"
+                f"warm_skipped_due_demoter: {status[WarmJmx.SKIPPED_DEMOTER]}\n")
