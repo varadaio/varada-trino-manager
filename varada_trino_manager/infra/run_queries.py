@@ -17,9 +17,9 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 overall_res = defaultdict(lambda: defaultdict(list))
 
 
-def run_queries(serial_queries: dict, client: APIClient, workload: int = 1, return_res: bool = False,
+def run_queries(serial_queries: dict, client: APIClient, multiple_query: bool, workload: int = 1, return_res: bool = False,
                 is_concurrent: bool = False, collect_query_json: bool = False, con: Connection = None,
-                query_jsons_dir: Path = None) -> Tuple[list, int, list]:
+                query_jsons_dir: Path = None, ) -> Tuple[list, int, list]:
     q_series_results = []
     for query in serial_queries:
         parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg=f"VTM Run Query: {query}")
@@ -30,7 +30,7 @@ def run_queries(serial_queries: dict, client: APIClient, workload: int = 1, retu
                                  "processedRows": q_stats["processedRows"],
                                  "processedBytes": q_stats["processedBytes"],
                                  "totalSplits": q_stats["totalSplits"],
-                                 "results": q_res[0:9] if (return_res and len(serial_queries) > 1) else None,
+                                 "results": q_res[0:9] if (return_res and multiple_query) else None,
                                  })
         logger.info(f'Query: {query} QueryId: {q_stats["queryId"]} '
                     f'Single query execution time: {round(q_stats["elapsedTimeMillis"] * 0.001, 3)} Seconds')
@@ -38,7 +38,7 @@ def run_queries(serial_queries: dict, client: APIClient, workload: int = 1, retu
             logger.info(f'Getting query json for query_id {q_stats["queryId"]}, saving to {query_jsons_dir}')
             RestCommands.save_query_json(con=con, dest_dir=query_jsons_dir, query_id=q_stats["queryId"])
     return q_series_results, workload, q_res if (
-                not is_concurrent and len(serial_queries) == 1 and return_res) else None
+                not is_concurrent and not multiple_query and return_res) else None
 
 
 def validate_queries_list(q_list: list, queries: dict):
@@ -151,6 +151,8 @@ def run(user: str, jsonpath: Path, txtpath: Path, queries_list: list, concurrenc
                                                   random=random,
                                                   queries_list=queries_list,
                                                   get_results=get_results)
+    q_lists_length_check = [len(q_lst) > 1 for q_lst in queries_prepared]
+    multiple_query = True in q_lists_length_check or len(queries_prepared) > 1
     logger.info(f'Run the queries on catalog {catalog}, '
                 f'for {iterations} iterations overall concurrency'
                 f' {verified_concurrency}')
@@ -171,12 +173,13 @@ def run(user: str, jsonpath: Path, txtpath: Path, queries_list: list, concurrenc
                         futures.append(executor.submit(run_queries,
                                                        query,
                                                        client,
+                                                       multiple_query,
                                                        queries_prepared.index(series) + 1,
                                                        get_results,
                                                        verified_concurrency > 1,
                                                        collect_query_json,
                                                        con,
-                                                       query_jsons_dir,
+                                                       query_jsons_dir if collect_query_json else None,
                                                        ))
             queries_done = 0
             total_elapsed_time = 0
@@ -189,7 +192,13 @@ def run(user: str, jsonpath: Path, txtpath: Path, queries_list: list, concurrenc
                     logger.info(
                         f'Query {query_data["queryName"]} elapsed time is {query_data["elapsedTime"]} Seconds, cpu time is {query_data["cpuTime"]} Seconds')
                     if query_results:
-                        echo(f'Query {query_data["queryName"]} results:\n {query_results}')
+                        echo(f'Query {query_data["queryName"]} results:\n {query_results[0:9]}')
+                        if get_results and len(query_results) > 10:
+                            with open(f"{destination_dir}/query_{query_data['queryName']}_results_{datetime.now().strftime('%H%M%S%f')}.json", 'w') as fd:
+                                echo(f'Query {query_data["queryName"]} full results saved to file {fd.name}')
+                                dump(query_results, fd, indent=2)
+                            fd.close()
+
 
             logger.info(
                 f'Iteration {iteration + 1} average elapsed time is {total_elapsed_time / queries_done} Seconds')
@@ -198,7 +207,8 @@ def run(user: str, jsonpath: Path, txtpath: Path, queries_list: list, concurrenc
                 logger.info(f'Sleeping {sleep_time} seconds before next run')
                 sleep(sleep_time)
         parallel_rest_execute(rest_client_type=VaradaRest, func=RestCommands.dev_log, msg="VTM Query Runner End")
+        logger.info(f'Overall run results: {dumps(overall_res, indent=2)}')
         with open(f"{destination_dir}/query_runner_overall_results_{datetime.now().strftime('%H%M%S%f')}.json", 'w') as fd:
             dump(overall_res, fd, indent=2)
+            echo(f'saving overall run results to: {fd.name}')
         fd.close()
-        logger.info(f'Overall run results: {dumps(overall_res, indent=2)}')
