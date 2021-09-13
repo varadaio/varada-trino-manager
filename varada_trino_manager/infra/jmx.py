@@ -40,3 +40,11 @@ class ExtVrdJmx:
                        "sum(prefilled_collect_columns) prefilled_collect_columns " \
                        "from jmx.current.\"io.varada.presto:type=VaradaStatsDispatcherPageSource,name=dispatcherPageSource.varada\" " \
                        "group by 'group'"
+
+    @staticmethod
+    def get_vrd_ext_status(con: Connection) -> list:
+        with APIClient(con=con,) as presto_client:
+            vrd_ext_status, _ = presto_client.execute(ExtVrdJmx.DISPATCHER_JMX_Q)
+            # since the returned value is always one line, we'll pop it to not have to ref index each time
+            vrd_ext_status = vrd_ext_status.pop()
+        return vrd_ext_status

@@ -1,7 +1,7 @@
 from json import dump
-from ..infra.jmx import WarmJmx
 from ..infra.utils import logger
 from ..infra.constants import Paths
+from ..infra.jmx import WarmJmx, ExtVrdJmx
 from ..infra.configuration import get_config
 from ..infra.rest_commands import RestCommands, ExtendedRest
 from click import group, argument, echo, option, Path as ClickPath
@@ -77,7 +77,7 @@ def is_panic_error():
 
 
 @etc.command()
-def loading_status():
+def loading_counters():
     """
     Print Varada loading counters
     """
@@ -90,3 +90,19 @@ def loading_status():
                 f"warm_failed: {status[WarmJmx.FAILED]}\n"
                 f"warm_skipped_due_queue_size: {status[WarmJmx.SKIPPED_QUEUE_SIZE]}\n"
                 f"warm_skipped_due_demoter: {status[WarmJmx.SKIPPED_DEMOTER]}\n")
+
+
+@etc.command()
+def internal_external_counters():
+    """
+    Print Varada match/collect counters vs. external match/collect
+    Aggregated counters for the cluster
+    """
+    con = get_config().get_connection_by_name("coordinator")
+    status = ExtVrdJmx.get_vrd_ext_status(con=con)
+    logger.info(f"JMX Varada/External: \n"
+                f"varada_match_columns: {status[ExtVrdJmx.VARADA_MATCH_COLUMNS]}\n"
+                f"varada_collect_columns: {status[ExtVrdJmx.VARADA_COLLECT_COLUMNS]}\n"
+                f"external_match_columns: {status[ExtVrdJmx.EXTERNAL_MATCH_COLUMNS]}\n"
+                f"external_collect_columns: {status[ExtVrdJmx.EXTERNAL_COLLECT_COLUMNS]}\n"
+                f"prefilled_collect_columns: {status[ExtVrdJmx.PREFILLED_COLLECT_COLUMNS]}\n")
