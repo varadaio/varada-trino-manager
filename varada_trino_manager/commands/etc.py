@@ -3,6 +3,7 @@ from ..infra.utils import logger
 from ..infra.constants import Paths
 from ..infra.jmx import WarmJmx, ExtVrdJmx
 from ..infra.configuration import get_config
+from ..infra.connections import VaradaWarmingRest
 from ..infra.rest_commands import RestCommands, ExtendedRest
 from click import group, argument, echo, option, Path as ClickPath
 from ..infra.remote import parallel_ssh_execute, rest_execute, parallel_rest_execute
@@ -106,3 +107,13 @@ def internal_external_counters():
                 f"external_match_columns: {status[ExtVrdJmx.EXTERNAL_MATCH_COLUMNS]}\n"
                 f"external_collect_columns: {status[ExtVrdJmx.EXTERNAL_COLLECT_COLUMNS]}\n"
                 f"prefilled_collect_columns: {status[ExtVrdJmx.PREFILLED_COLLECT_COLUMNS]}\n")
+
+
+@etc.command()
+def is_warming():
+    """
+    Is the Varada cluster currently warming data - caching/indexing
+    """
+    con = get_config().get_connection_by_name("coordinator")
+    status = rest_execute(con=con, rest_client_type=VaradaWarmingRest, func=VaradaWarmingRest.warming_status)
+    logger.info(f"Warming status: {status}")

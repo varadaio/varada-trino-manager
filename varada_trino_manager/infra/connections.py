@@ -211,6 +211,20 @@ class VaradaRest(Rest):
         self.post(sub_url='debug-log', json_data={'logLine': msg})
 
 
+class VaradaWarmingRest(Rest):
+
+    def __init__(self, con: Connection, http_schema: str = Schemas.HTTP):
+        super().__init__(con, http_schema=http_schema, port=con.varada.port)
+
+    @property
+    def url(self) -> str:
+        return f"{super(VaradaWarmingRest, self).url}/warming"
+
+    def warming_status(self):
+        status = self.get(sub_url='status')
+        return status.json()
+
+
 class APIClient(Client):
 
     distribution_to_class = {
