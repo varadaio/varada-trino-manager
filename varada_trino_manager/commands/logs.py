@@ -51,7 +51,6 @@ def collect(destination_dir: str):
         "sudo jps > /tmp/custom_logs/jps",
         'grep TrinoServer /tmp/custom_logs/jps | cut -d" " -f1 > /tmp/custom_logs/server.pid || true',
         "sudo jstack $(cat /tmp/custom_logs/server.pid) > /tmp/custom_logs/jstack.txt || true",
-        "sudo pstack $(cat /tmp/custom_logs/server.pid) > /tmp/custom_logs/pstack.txt || true",
         "cp /var/log/presto/* /tmp/custom_logs/ || true",
         "sudo cp /var/log/messages /tmp/custom_logs/",
         "sudo cp /var/log/user-data.log /tmp/custom_logs/",
