@@ -5,6 +5,7 @@ from ..infra.jmx import WarmJmx, ExtVrdJmx
 from ..infra.configuration import get_config
 from ..infra.connections import VaradaWarmingRest
 from ..infra.rest_commands import RestCommands, ExtendedRest
+from ..infra.etc import run as internal_external_query
 from click import group, argument, echo, option, Path as ClickPath
 from ..infra.remote import parallel_ssh_execute, rest_execute, parallel_rest_execute
 
@@ -93,20 +94,34 @@ def loading_counters():
                 f"warm_skipped_due_demoter: {status[WarmJmx.SKIPPED_DEMOTER]}\n")
 
 
+@option(
+    "-d",
+    "--destination-dir",
+    default=Paths.logs_path,
+    help="Destination dir to save the query json"
+)
+@argument("query_id", required=False, nargs=1)
 @etc.command()
-def internal_external_counters():
+def internal_external_counters(destination_dir, query_id):
     """
     Print Varada match/collect counters vs. external match/collect
-    Aggregated counters for the cluster
+    Aggregated counters for the cluster (default), or per query (by query ID)
+    Example:
+        vtm etc internal-external-counters  => print cluster-wide Varada and External filtering/projection counters
+        vtm etc internal-external-counters <query_id> => download query json for query_id, print acceleration counters for the query
+
     """
     con = get_config().get_connection_by_name("coordinator")
-    status = ExtVrdJmx.get_vrd_ext_status(con=con)
-    logger.info(f"JMX Varada/External: \n"
-                f"varada_match_columns: {status[ExtVrdJmx.VARADA_MATCH_COLUMNS]}\n"
-                f"varada_collect_columns: {status[ExtVrdJmx.VARADA_COLLECT_COLUMNS]}\n"
-                f"external_match_columns: {status[ExtVrdJmx.EXTERNAL_MATCH_COLUMNS]}\n"
-                f"external_collect_columns: {status[ExtVrdJmx.EXTERNAL_COLLECT_COLUMNS]}\n"
-                f"prefilled_collect_columns: {status[ExtVrdJmx.PREFILLED_COLLECT_COLUMNS]}\n")
+    if query_id:
+        internal_external_query(con=con, results_dir=destination_dir, query_id=query_id)
+    else:
+        status = ExtVrdJmx.get_vrd_ext_status(con=con)
+        logger.info(f"Cluster Overall Varada/External: \n"
+                    f"varada_match_columns: {status[ExtVrdJmx.VARADA_MATCH_COLUMNS]}\n"
+                    f"varada_collect_columns: {status[ExtVrdJmx.VARADA_COLLECT_COLUMNS]}\n"
+                    f"external_match_columns: {status[ExtVrdJmx.EXTERNAL_MATCH_COLUMNS]}\n"
+                    f"external_collect_columns: {status[ExtVrdJmx.EXTERNAL_COLLECT_COLUMNS]}\n"
+                    f"prefilled_collect_columns: {status[ExtVrdJmx.PREFILLED_COLLECT_COLUMNS]}\n")
 
 
 @etc.command()
