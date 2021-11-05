@@ -64,7 +64,12 @@ def run(con: Connection, results_dir: str, query_id: str):
     with open(f'{results_dir}/{query_id}.json', 'r') as f:
         query_json = load(f)
     operator_summaries = query_json['queryStats']['operatorSummaries']
-    metrics = [op_sum['metrics'] for op_sum in operator_summaries if 'metrics' in op_sum.keys()]
+    metrics = []
+    for op_sum in operator_summaries:
+        if 'connectorMetrics' in op_sum.keys():
+            metrics.append(op_sum['connectorMetrics'])
+        elif 'metrics' in op_sum.keys():
+            metrics.append(op_sum['metrics'])
 
     # sum of all flat custom metrics
     for metric in metrics:
