@@ -1,0 +1,22 @@
+{
+  "s3_call_home": "s3://varadaio-us-east-1-cluster-config/gatekeeper-2167-20220223-0328-45c-2/gatekeeper-2167-20220223-0328-45c-2/varada/call-home/",
+  "output_dir": "call_summary",
+  "graphs_keys": {
+    "WarmUP":["warming-service-warm_started",
+              "warming-service-warm_accomplished"],
+    "VaradaUsage": ["dispatcherPageSource-varada_collect_columns",
+                    "dispatcherPageSource-external_collect_columns",
+                    "dispatcherPageSource-varada_match_collect_columns", "dispatcherPageSource-varada_match_columns",
+                    "dispatcherPageSource-external_match_columns"],
+    "Storage": ["warmupDemoter-currentUsage"]},
+  "delta_metrics": "warmupDemoter-currentUsage",
+  "graphs": "Storage VaradaUsage",
+  "start_time": "02/08/2020 00:00",
+  "end_time": "02/10/2023 00:00",
+  "all_clusters": true,
+  "each_node": false,
+  "granularity_minutes": 5,
+  "max_samples": 30,
+  "error": true,
+  "audit": true
+}

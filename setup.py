@@ -31,7 +31,10 @@ setup(
         "sshtunnel==0.4.0",
         "pydantic==1.8.1",
         "trino==0.305.0",
-        "presto-python-client==0.7.0"
+        "presto-python-client==0.7.0",
+        'matplotlib==3.5.1',
+        'boto3==1.16.25',
+        'urlpath==1.1.7'
     ],
     extras_require={
         "dev": [
@@ -45,6 +48,6 @@ setup(
     },
     zip_safe=False,
     entry_points={
-        "console_scripts": ["vtm=varada_trino_manager.main:main"],
+        "console_scripts": ["vtm=varada_trino_manager.main:main"]
     },
 )
