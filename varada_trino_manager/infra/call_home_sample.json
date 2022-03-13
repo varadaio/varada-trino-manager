@@ -1,5 +1,5 @@
 {
-  "s3_call_home": "s3://varadaio-us-east-1-cluster-config/gatekeeper-2167-20220223-0328-45c-2/gatekeeper-2167-20220223-0328-45c-2/varada/call-home/",
+  "s3_call_home": "s3://varadaio-us-east-1-users/yaffi/call-home/",
   "output_dir": "call_summary",
   "graphs_keys": {
     "WarmUP":["warming-service-warm_started",
