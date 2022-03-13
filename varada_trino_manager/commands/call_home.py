@@ -1,5 +1,5 @@
 from ..infra.call_home_methods import run
-from click import group, Path, echo, option
+from click import group, Path, echo, option, argument
 from os.path import dirname, abspath, join
 
 
@@ -23,6 +23,7 @@ def call_home():
     type=Path(exists=True),
     help="create folder with logs & graphs",
 )
+@argument("options ", nargs=1)
 @call_home.command()
 def create_dumps(config_template, config_json):
     """

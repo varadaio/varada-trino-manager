@@ -83,7 +83,8 @@ def get_slog_metrics(slog_files: list, frequency_minutes: int, start_time, end_t
                             metric_name = get_val(metric_tuple, 0)
                             metric_value = get_val(metric_tuple, 1)
                             values = re_findall(r"([\+\-][\d]+).*\(([\d]+)\)", metric_value)
-
+                            if len(values) == 0:
+                                continue
                             if metric_name in delta_metrics:
                                 val = int(get_val(values[0], 1))
                             else:
