@@ -194,6 +194,7 @@ def run(config_json: str):
 
     cluster_files = []
     for folder in s3location.glob_folders():
+        echo(folder)
         node = f"{str(folder).split('/')[-2]}"
         slog_files = []
         for slog in (folder / 'server*').glob():
