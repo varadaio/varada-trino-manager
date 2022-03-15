@@ -23,12 +23,14 @@ def call_home():
     type=Path(exists=True),
     help="create folder with logs & graphs",
 )
-@argument("options ", nargs=1)
 @call_home.command()
 def create_dumps(config_template, config_json):
     """
     create folder with logs & graphs
     """
+    if config_template is False and config_json is None:
+        print("required -t (config template) or -c with config file path")
+        return
     if config_template:
         sample_config_path = join(dirname(abspath(__file__)), "../infra/call_home_sample.json")
         with open(sample_config_path) as f:
