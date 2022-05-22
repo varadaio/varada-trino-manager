@@ -150,10 +150,14 @@ def grep_slog_files(node, slog_files, grep_str: str, file, start_time, end_time)
     for slog in slog_files:
         for line in slog.split('\n'):
             if re.search(grep_str, line):
-                logtime = time.mktime(datetime.datetime.strptime(line.split('Z')[0], "%Y-%m-%dT%H:%M:%S.%f").timetuple())  # 2022-02-08T06:39:23.787Z
-                if logtime < start_time or logtime > end_time:
+                try:
+                    logtime = time.mktime(datetime.datetime.strptime(line.split('Z')[0], "%Y-%m-%dT%H:%M:%S.%f").timetuple())  # 2022-02-08T06:39:23.787Z
+                    if logtime < start_time or logtime > end_time:
+                        continue
+                    file.write(f"{line}\n")
+                except Exception as e:
                     continue
-                file.write(f"{line}\n")
+
 
 
 def print_node(folder, file):
